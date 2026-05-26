@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, X, Save, AlertTriangle, CheckCircle, Search } from "lucide-react";
 import { PACIENTES_MOCK, TERAPEUTAS } from "@/lib/mock-data";
-import { getEstadoConfig } from "@/lib/calculos";
+import { getEstadoConfig, requiereAlerta, requiereAlertaSesiones } from "@/lib/calculos";
 import { formatFecha } from "@/lib/utils";
 import type { Paciente } from "@/lib/tipos";
 
@@ -244,7 +244,7 @@ export default function NuevoIngresoPage() {
             <div className={`p-4 rounded-xl border ${
               ordenBloqueada
                 ? "bg-red-50 border-red-200"
-                : orden?.estado === "ALERTA"
+                : (requiereAlerta(orden?.dias_restantes) || requiereAlertaSesiones(orden?.sesiones_restantes))
                 ? "bg-amber-50 border-amber-200"
                 : "bg-emerald-50 border-emerald-200"
             }`}>
