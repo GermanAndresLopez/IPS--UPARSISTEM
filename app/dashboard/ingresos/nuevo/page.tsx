@@ -340,7 +340,7 @@ export default function NuevoIngresoPage() {
               {ordenBloqueada && (
                 <div className="mt-2 p-2.5 bg-red-100 rounded-lg text-red-700 text-xs font-medium">
                   ⚠️ La orden está{" "}
-                  {orden?.estado === "AGOTADA" ? "agotada" : "vencida"}.
+                  {orden?.sesiones_restantes !== undefined && orden.sesiones_restantes <= 0 ? "agotada" : "vencida"}.
                   Contacte al coordinador antes de registrar el ingreso.
                 </div>
               )}
