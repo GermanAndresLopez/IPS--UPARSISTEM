@@ -4,11 +4,6 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Heart } from "lucide-react";
 import { authApi } from "@/lib/api";
 
-const DEMOS = [
-  { correo: "admin@terapia.com", rol: "ADMIN",       nombre: "Carlos Administrador" },
-  { correo: "laura@terapia.com", rol: "COORDINADOR", nombre: "Laura Coordinadora"   },
-  { correo: "maria@terapia.com", rol: "OPERATIVO",   nombre: "María Operativa"      },
-];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -117,30 +112,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Accesos rápidos */}
-          <div className="mt-6 pt-5 border-t border-gray-100">
-            <p className="text-xs text-gray-400 text-center mb-1">Accesos de demostración</p>
-            <p className="text-xs text-gray-400 text-center mb-3">
-              Contraseña: <span className="font-mono font-semibold text-indigo-600">Terapia2024!</span>
-            </p>
-            <div className="space-y-2">
-              {DEMOS.map(u => (
-                <button
-                  key={u.correo}
-                  onClick={() => { setCorreo(u.correo); setPassword("Terapia2024!"); }}
-                  className="w-full text-left px-3 py-2 rounded-lg bg-gray-50 hover:bg-indigo-50 text-xs text-gray-600 hover:text-indigo-700 transition flex justify-between items-center"
-                >
-                  <span className="font-medium">{u.nombre}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold
-                    ${u.rol === "ADMIN" ? "bg-indigo-100 text-indigo-700" :
-                      u.rol === "COORDINADOR" ? "bg-blue-100 text-blue-700" :
-                      "bg-emerald-100 text-emerald-700"}`}>
-                    {u.rol}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
