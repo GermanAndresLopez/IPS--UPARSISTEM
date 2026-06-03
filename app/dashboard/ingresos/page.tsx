@@ -170,10 +170,10 @@ function IngresoCard({ ingreso, esNuevo }: { ingreso: Ingreso; esNuevo?: boolean
       <div className="flex-shrink-0 text-center w-14">
         <div className={`rounded-xl p-2.5 ${esNuevo ? "bg-emerald-50" : "bg-indigo-50"}`}>
           <p className={`text-xs font-semibold uppercase ${esNuevo ? "text-emerald-500" : "text-indigo-500"}`}>
-            {new Date(ingreso.fecha + "T12:00:00").toLocaleDateString("es-CO", { month: "short" })}
+            {new Date(String(ingreso.fecha).slice(0, 10) + "T12:00:00").toLocaleDateString("es-CO", { month: "short" })}
           </p>
           <p className={`text-xl font-bold ${esNuevo ? "text-emerald-700" : "text-indigo-700"}`}>
-            {new Date(ingreso.fecha + "T12:00:00").getDate()}
+            {new Date(String(ingreso.fecha).slice(0, 10) + "T12:00:00").getDate()}
           </p>
           <p className={`text-xs capitalize ${esNuevo ? "text-emerald-400" : "text-indigo-400"}`}>
             {ingreso.dia_semana}

@@ -15,7 +15,9 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatFecha(fecha: string): string {
   if (!fecha) return "-";
-  const d = new Date(fecha);
+  const solo = String(fecha).slice(0, 10);
+  const d = new Date(solo + "T12:00:00");
+  if (isNaN(d.getTime())) return "-";
   return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
 }
 

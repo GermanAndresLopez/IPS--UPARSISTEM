@@ -196,10 +196,17 @@ export default function PerfilPacientePage({ params }: { params: Promise<{ id: s
               <div key={ingreso.id}
                 className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
                 <div className="flex-shrink-0 text-center">
-                  <p className="text-xs text-gray-400">
-                    {new Date(ingreso.fecha + "T12:00:00").toLocaleDateString("es-CO", { month: "short" })}
-                  </p>
-                  <p className="text-lg font-bold text-gray-900">{new Date(ingreso.fecha + "T12:00:00").getDate()}</p>
+                  {(() => {
+                    const d = new Date(String(ingreso.fecha).slice(0, 10) + "T12:00:00");
+                    return (
+                      <>
+                        <p className="text-xs text-gray-400">
+                          {d.toLocaleDateString("es-CO", { month: "short" })}
+                        </p>
+                        <p className="text-lg font-bold text-gray-900">{d.getDate()}</p>
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
