@@ -1,6 +1,5 @@
 /**
  * Cliente API — todas las llamadas al backend Node.js
- * Reemplaza los datos mock de lib/mock-data.ts
  */
 
 const API_URL =
@@ -154,6 +153,11 @@ export const modalidadesApi = {
 
 export const tiposIngresoApi = {
   getAll: () => apiFetch<unknown[]>("/configuracion/tipos-ingreso"),
+};
+
+// ─── AUDITORÍA ────────────────────────────────────────────────────────────────
+export const auditoriaApi = {
+  getAll: () => apiFetch<unknown[]>("/auditoria"),
 };
 
 // ─── USUARIOS ─────────────────────────────────────────────────────────────────

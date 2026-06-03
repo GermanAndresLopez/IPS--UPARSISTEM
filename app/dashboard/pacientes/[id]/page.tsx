@@ -1,10 +1,11 @@
 "use client";
-import { use } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Phone, Calendar, FileText, Clock, User } from "lucide-react";
-import { PACIENTES_MOCK, INGRESOS_MOCK } from "@/lib/mock-data";
+import { ArrowLeft, Phone, Calendar, FileText, Clock, User, Loader2, AlertTriangle } from "lucide-react";
+import { pacientesApi, ingresosApi } from "@/lib/api";
 import { getEstadoConfig, getCategoriaConfig } from "@/lib/calculos";
 import { formatFecha, formatHora } from "@/lib/utils";
+import type { Paciente, Ingreso } from "@/lib/tipos";
 
 function calcEdad(fn: string) {
   const hoy = new Date(); const nac = new Date(fn);
@@ -16,24 +17,43 @@ function calcEdad(fn: string) {
 
 export default function PerfilPacientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const paciente = PACIENTES_MOCK.find(p => p.id === Number(id));
 
-  if (!paciente) return (
+  const [paciente, setPaciente] = useState<Paciente | null>(null);
+  const [ingresos, setIngresos] = useState<Ingreso[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState("");
+
+  useEffect(() => {
+    Promise.all([
+      pacientesApi.getById(Number(id)) as Promise<Paciente>,
+      ingresosApi.getAll({ paciente_id: Number(id) }) as Promise<Ingreso[]>,
+    ])
+      .then(([p, i]) => { setPaciente(p); setIngresos(i); })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-full py-20">
+      <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+    </div>
+  );
+
+  if (error || !paciente) return (
     <div className="p-6 text-center text-gray-400">
-      <p>Paciente no encontrado.</p>
+      <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-red-400" />
+      <p>{error || "Paciente no encontrado."}</p>
       <Link href="/dashboard/pacientes" className="text-indigo-600 text-sm mt-2 inline-block">← Volver</Link>
     </div>
   );
 
-  const ingresos = INGRESOS_MOCK.filter(i => i.paciente_id === paciente.id);
-  const orden    = paciente.orden_activa;
+  const orden     = paciente.orden_activa;
   const estadoCfg = orden ? getEstadoConfig(orden.estado) : null;
   const catCfg    = getCategoriaConfig(paciente.categoria);
   const edad      = calcEdad(paciente.fecha_nacimiento);
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-5">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/dashboard/pacientes"
           className="p-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition text-gray-500">
@@ -86,13 +106,13 @@ export default function PerfilPacientePage({ params }: { params: Promise<{ id: s
             </div>
             <div>
               <p className="text-xs text-gray-400">Novedad</p>
-              <p className="text-sm text-gray-800">{paciente.novedad.replace("_"," ")}</p>
+              <p className="text-sm text-gray-800">{paciente.novedad.replace(/_/g," ")}</p>
             </div>
           </div>
         </div>
 
         {/* Orden activa */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
               <FileText className="w-4 h-4 text-indigo-500" /> Orden Activa
@@ -115,10 +135,10 @@ export default function PerfilPacientePage({ params }: { params: Promise<{ id: s
                     <p className="text-xs text-gray-400">Inicio</p>
                     <p className="font-semibold text-gray-900">{formatFecha(orden.fecha_inicio)}</p>
                   </div>
-                  {orden.tipo_limite === "FECHA" && (
+                  {orden.tipo_limite === "FECHA" && orden.fecha_fin && (
                     <div>
                       <p className="text-xs text-gray-400">Vencimiento</p>
-                      <p className="font-semibold text-gray-900">{formatFecha(orden.fecha_fin!)}</p>
+                      <p className="font-semibold text-gray-900">{formatFecha(orden.fecha_fin)}</p>
                       {orden.dias_restantes !== undefined && (
                         <p className={`text-xs font-medium mt-0.5 ${estadoCfg?.color}`}>
                           {orden.dias_restantes >= 0
@@ -137,13 +157,11 @@ export default function PerfilPacientePage({ params }: { params: Promise<{ id: s
                       <p className={`text-xs font-medium mt-0.5 ${estadoCfg?.color}`}>
                         {orden.sesiones_restantes} restantes
                       </p>
-                      {/* Barra de progreso */}
                       <div className="mt-2 bg-gray-100 rounded-full h-2 w-full">
-                        <div
-                          className={`h-2 rounded-full ${
-                            (orden.sesiones_restantes || 0) <= 0 ? "bg-red-500" :
-                            (orden.sesiones_restantes || 0) <= 5 ? "bg-amber-500" : "bg-emerald-500"
-                          }`}
+                        <div className={`h-2 rounded-full ${
+                          (orden.sesiones_restantes || 0) <= 0 ? "bg-red-500" :
+                          (orden.sesiones_restantes || 0) <= 5 ? "bg-amber-500" : "bg-emerald-500"
+                        }`}
                           style={{ width: `${Math.min(100, (orden.sesiones_consumidas / (orden.sesiones_autorizadas || 1)) * 100)}%` }}
                         />
                       </div>
@@ -179,9 +197,9 @@ export default function PerfilPacientePage({ params }: { params: Promise<{ id: s
                 className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
                 <div className="flex-shrink-0 text-center">
                   <p className="text-xs text-gray-400">
-                    {new Date(ingreso.fecha).toLocaleDateString("es-CO",{ month: "short" })}
+                    {new Date(ingreso.fecha + "T12:00:00").toLocaleDateString("es-CO", { month: "short" })}
                   </p>
-                  <p className="text-lg font-bold text-gray-900">{new Date(ingreso.fecha).getDate()}</p>
+                  <p className="text-lg font-bold text-gray-900">{new Date(ingreso.fecha + "T12:00:00").getDate()}</p>
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">

@@ -1,52 +1,70 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Save, FileText, Search, UserPlus,
-  Upload, X, Image, FileCheck,
+  Upload, X, FileCheck, Loader2,
 } from "lucide-react";
-import { PACIENTES_MOCK, TERAPEUTAS } from "@/lib/mock-data";
+import { ordenesApi, terapeutasApi, modalidadesApi, pacientesApi } from "@/lib/api";
+import type { Terapeuta, Modalidad } from "@/lib/tipos";
+
+interface PacienteBusqueda {
+  id: number; nombre_completo: string; documento_identidad: string; tipo_paciente: string;
+}
 
 export default function NuevaOrdenPage() {
   const router = useRouter();
 
-  // ── Formulario ──
+  const [terapeutas,  setTerapeutas]  = useState<Terapeuta[]>([]);
+  const [modalidades, setModalidades] = useState<Modalidad[]>([]);
+  const [cargando,    setCargando]    = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      terapeutasApi.getAll()  as Promise<Terapeuta[]>,
+      modalidadesApi.getAll() as Promise<Modalidad[]>,
+    ]).then(([t, m]) => {
+      setTerapeutas(t.filter(x => x.activo));
+      setModalidades(m.filter(x => x.activa));
+    }).finally(() => setCargando(false));
+  }, []);
+
   const [form, setForm] = useState({
     paciente_id: "", tipo_limite: "FECHA",
     fecha_emision: "", fecha_inicio: "", fecha_fin: "",
-    sesiones_autorizadas: "", terapeuta_inicial_id: "", modalidad: "Individual",
+    sesiones_autorizadas: "", terapeuta_inicial_id: "", modalidad_id: "",
   });
   const [guardando, setGuardando] = useState(false);
-  const [guardado,  setGuardado]  = useState(false);
+  const [error,     setError]     = useState("");
 
-  // ── Buscador de paciente ──
   const [busqueda,       setBusqueda]       = useState("");
   const [pacienteNombre, setPacienteNombre] = useState("");
+  const [sugerencias,    setSugerencias]    = useState<PacienteBusqueda[]>([]);
   const [mostrarLista,   setMostrarLista]   = useState(false);
   const busquedaRef = useRef<HTMLDivElement>(null);
 
-  const sugerencias = busqueda.length >= 2
-    ? PACIENTES_MOCK.filter(p =>
-        p.nombre_completo.toLowerCase().includes(busqueda.toLowerCase()) ||
-        p.documento_identidad.includes(busqueda)
-      ).slice(0, 6)
-    : [];
+  const buscarPacientes = async (q: string) => {
+    setBusqueda(q);
+    if (q.length < 2) { setSugerencias([]); setMostrarLista(false); return; }
+    try {
+      const data = await pacientesApi.buscar(q) as PacienteBusqueda[];
+      setSugerencias(data);
+      setMostrarLista(true);
+    } catch { setSugerencias([]); }
+  };
 
-  const seleccionarPaciente = (p: (typeof PACIENTES_MOCK)[0]) => {
+  const seleccionarPaciente = (p: PacienteBusqueda) => {
     setForm(prev => ({ ...prev, paciente_id: String(p.id) }));
     setPacienteNombre(p.nombre_completo);
-    setBusqueda("");
-    setMostrarLista(false);
+    setBusqueda(""); setSugerencias([]); setMostrarLista(false);
   };
 
   const limpiarPaciente = () => {
     setForm(prev => ({ ...prev, paciente_id: "" }));
-    setPacienteNombre("");
-    setBusqueda("");
+    setPacienteNombre(""); setBusqueda("");
   };
 
-  // ── Archivo adjunto ──
   const [archivo,        setArchivo]        = useState<File | null>(null);
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null);
   const inputFileRef = useRef<HTMLInputElement>(null);
@@ -60,35 +78,51 @@ export default function NuevaOrdenPage() {
       reader.onload = () => setArchivoPreview(reader.result as string);
       reader.readAsDataURL(file);
     } else {
-      setArchivoPreview(null); // PDF — sin preview de imagen
+      setArchivoPreview(null);
     }
   };
 
   const quitarArchivo = () => {
-    setArchivo(null);
-    setArchivoPreview(null);
+    setArchivo(null); setArchivoPreview(null);
     if (inputFileRef.current) inputFileRef.current.value = "";
   };
 
-  // ── Campos genéricos ──
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setGuardando(true);
-    setTimeout(() => {
-      setGuardando(false); setGuardado(true);
-      setTimeout(() => router.push("/dashboard/ordenes"), 1000);
-    }, 900);
+    if (!form.paciente_id) return;
+    setError(""); setGuardando(true);
+    try {
+      const fd = new FormData();
+      fd.append("paciente_id",          form.paciente_id);
+      fd.append("tipo_limite",          form.tipo_limite);
+      fd.append("fecha_emision",        form.fecha_emision);
+      fd.append("fecha_inicio",         form.fecha_inicio);
+      fd.append("modalidad_id",         form.modalidad_id || String(modalidades[0]?.id ?? ""));
+      fd.append("terapeuta_inicial_id", form.terapeuta_inicial_id);
+      if (form.tipo_limite === "FECHA")              fd.append("fecha_fin",            form.fecha_fin);
+      if (form.tipo_limite === "CANTIDAD_TERAPIAS")  fd.append("sesiones_autorizadas", form.sesiones_autorizadas);
+      if (archivo) fd.append("adjunto", archivo);
+
+      await ordenesApi.create(fd);
+      router.push("/dashboard/ordenes");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al guardar");
+      setGuardando(false);
+    }
   };
 
-  const esEsPdf = archivo?.type === "application/pdf";
+  if (cargando) return (
+    <div className="flex items-center justify-center h-full py-20">
+      <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
+    </div>
+  );
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-5">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/dashboard/ordenes"
           className="p-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition text-gray-500">
@@ -101,79 +135,63 @@ export default function NuevaOrdenPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-
-        {/* ── Sección: Datos de la orden ── */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
           <h3 className="font-semibold text-gray-900 flex items-center gap-2">
             <FileText className="w-5 h-5 text-indigo-500" /> Datos de la Orden
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-            {/* ── Buscador de paciente ── */}
+            {/* Buscador paciente */}
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Paciente</label>
-
-              {/* Paciente seleccionado */}
               {form.paciente_id ? (
                 <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 border border-indigo-200 rounded-xl">
                   <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                     {pacienteNombre.split(" ").slice(0,2).map(n => n[0]).join("")}
                   </div>
                   <span className="flex-1 text-sm font-semibold text-gray-900">{pacienteNombre}</span>
-                  <button type="button" onClick={limpiarPaciente}
-                    className="text-gray-400 hover:text-red-500 transition">
+                  <button type="button" onClick={limpiarPaciente} className="text-gray-400 hover:text-red-500 transition">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 <div className="relative" ref={busquedaRef}>
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    value={busqueda}
-                    onChange={e => { setBusqueda(e.target.value); setMostrarLista(true); }}
-                    onFocus={() => setMostrarLista(true)}
+                  <input value={busqueda}
+                    onChange={e => buscarPacientes(e.target.value)}
                     onBlur={() => setTimeout(() => setMostrarLista(false), 150)}
                     placeholder="Buscar por nombre o documento..."
-                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-
-                  {/* Dropdown de sugerencias */}
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                   {mostrarLista && busqueda.length >= 2 && (
                     <div className="absolute z-20 top-full mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                       {sugerencias.length > 0 ? (
                         <>
                           {sugerencias.map(p => (
-                            <button key={p.id} type="button"
-                              onMouseDown={() => seleccionarPaciente(p)}
+                            <button key={p.id} type="button" onMouseDown={() => seleccionarPaciente(p)}
                               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition text-left">
                               <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0">
                                 {p.nombre_completo.split(" ").slice(0,2).map(n=>n[0]).join("")}
                               </div>
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold text-gray-900 truncate">{p.nombre_completo}</p>
-                                <p className="text-xs text-gray-400">{p.documento_identidad} · {p.eps_nombre ?? "Particular"}</p>
+                                <p className="text-xs text-gray-400">{p.documento_identidad}</p>
                               </div>
                             </button>
                           ))}
-                          {/* Separador + crear */}
                           <div className="border-t border-gray-100">
-                            <Link href={`/dashboard/pacientes/nuevo?nombre=${encodeURIComponent(busqueda)}`}
+                            <Link href={`/dashboard/pacientes/nuevo`}
                               className="flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 transition text-emerald-700 text-sm font-semibold">
-                              <UserPlus className="w-4 h-4" />
-                              Crear paciente "{busqueda}"
+                              <UserPlus className="w-4 h-4" /> Crear nuevo paciente
                             </Link>
                           </div>
                         </>
                       ) : (
                         <div className="flex flex-col">
-                          <div className="px-4 py-3 text-sm text-gray-400 text-center">
-                            No se encontró ningún paciente
-                          </div>
+                          <div className="px-4 py-3 text-sm text-gray-400 text-center">No se encontró ningún paciente</div>
                           <div className="border-t border-gray-100">
-                            <Link href={`/dashboard/pacientes/nuevo?nombre=${encodeURIComponent(busqueda)}`}
+                            <Link href={`/dashboard/pacientes/nuevo`}
                               className="flex items-center gap-3 px-4 py-3 hover:bg-emerald-50 transition text-emerald-700 text-sm font-semibold">
-                              <UserPlus className="w-4 h-4" />
-                              Crear paciente "{busqueda}"
+                              <UserPlus className="w-4 h-4" /> Crear nuevo paciente
                             </Link>
                           </div>
                         </div>
@@ -182,32 +200,25 @@ export default function NuevaOrdenPage() {
                   )}
                 </div>
               )}
-              {/* Campo oculto para validación del form */}
               <input type="hidden" name="paciente_id" value={form.paciente_id} required />
             </div>
 
-            {/* Tipo de límite */}
+            {/* Tipo de orden */}
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipo de orden</label>
               <div className="grid grid-cols-2 gap-3">
-                {["FECHA", "CANTIDAD_TERAPIAS"].map(tipo => (
-                  <label key={tipo}
-                    className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition ${
-                      form.tipo_limite === tipo
-                        ? "border-indigo-500 bg-indigo-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}>
+                {["FECHA","CANTIDAD_TERAPIAS"].map(tipo => (
+                  <label key={tipo} className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition ${
+                    form.tipo_limite === tipo ? "border-indigo-500 bg-indigo-50" : "border-gray-200 hover:border-gray-300"
+                  }`}>
                     <input type="radio" name="tipo_limite" value={tipo}
-                      checked={form.tipo_limite === tipo} onChange={handleChange}
-                      className="text-indigo-600" />
+                      checked={form.tipo_limite === tipo} onChange={handleChange} className="text-indigo-600" />
                     <div>
                       <p className="text-sm font-semibold text-gray-900">
                         {tipo === "FECHA" ? "Por fecha de vencimiento" : "Por cantidad de terapias"}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {tipo === "FECHA"
-                          ? "La orden tiene fecha de inicio y fin"
-                          : "La orden autoriza N sesiones sin fecha fija"}
+                        {tipo === "FECHA" ? "La orden tiene fecha de inicio y fin" : "La orden autoriza N sesiones sin fecha fija"}
                       </p>
                     </div>
                   </label>
@@ -215,14 +226,11 @@ export default function NuevaOrdenPage() {
               </div>
             </div>
 
-            {/* Fecha emisión */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Fecha de emisión (EPS)</label>
               <input type="date" name="fecha_emision" value={form.fecha_emision} onChange={handleChange} required
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
-
-            {/* Fecha inicio */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Fecha de inicio</label>
               <input type="date" name="fecha_inicio" value={form.fecha_inicio} onChange={handleChange} required
@@ -236,7 +244,6 @@ export default function NuevaOrdenPage() {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
             )}
-
             {form.tipo_limite === "CANTIDAD_TERAPIAS" && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Sesiones autorizadas</label>
@@ -246,44 +253,38 @@ export default function NuevaOrdenPage() {
               </div>
             )}
 
-            {/* Terapeuta inicial */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Terapeuta inicial</label>
               <select name="terapeuta_inicial_id" value={form.terapeuta_inicial_id} onChange={handleChange} required
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="">Seleccione terapeuta...</option>
-                {TERAPEUTAS.filter(t => t.activo).map(t => (
+                {terapeutas.map(t => (
                   <option key={t.id} value={t.id}>{t.nombre_completo} — {t.tipo_cargo}</option>
                 ))}
               </select>
             </div>
 
-            {/* Modalidad */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Modalidad</label>
-              <select name="modalidad" value={form.modalidad} onChange={handleChange}
+              <select name="modalidad_id" value={form.modalidad_id} onChange={handleChange} required
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                {["Individual","Grupal","Domiciliaria","Telepresencia"].map(m => (
-                  <option key={m} value={m}>{m}</option>
+                <option value="">Seleccione modalidad...</option>
+                {modalidades.map(m => (
+                  <option key={m.id} value={m.id}>{m.nombre}</option>
                 ))}
               </select>
             </div>
           </div>
         </div>
 
-        {/* ── Sección: Soporte / Archivo ── */}
+        {/* Soporte / Archivo */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
           <h3 className="font-semibold text-gray-900 flex items-center gap-2">
             <Upload className="w-5 h-5 text-indigo-500" /> Soporte de la Orden
           </h3>
-          <p className="text-xs text-gray-400">
-            Adjunte la imagen o PDF de la autorización emitida por la EPS (opcional).
-          </p>
-
+          <p className="text-xs text-gray-400">Adjunte la imagen o PDF de la autorización emitida por la EPS (opcional).</p>
           {!archivo ? (
-            /* Zona de carga */
-            <label
-              htmlFor="archivo-orden"
+            <label htmlFor="archivo-orden"
               className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 transition group">
               <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition">
                 <Upload className="w-6 h-6 text-indigo-400" />
@@ -292,80 +293,59 @@ export default function NuevaOrdenPage() {
                 <p className="text-sm font-semibold text-gray-700">Haga clic para cargar</p>
                 <p className="text-xs text-gray-400 mt-0.5">PNG, JPG, WEBP o PDF · Máx. 10 MB</p>
               </div>
-              <input
-                id="archivo-orden"
-                ref={inputFileRef}
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={handleArchivo}
-                className="hidden"
-              />
+              <input id="archivo-orden" ref={inputFileRef} type="file"
+                accept="image/*,application/pdf" onChange={handleArchivo} className="hidden" />
             </label>
           ) : (
-            /* Vista previa del archivo */
             <div className="border border-gray-200 rounded-xl overflow-hidden">
               {archivoPreview ? (
-                /* Preview de imagen */
                 <div className="relative">
-                  <img src={archivoPreview} alt="Soporte de orden"
-                    className="w-full max-h-64 object-contain bg-gray-50" />
-                  <div className="absolute top-2 right-2">
-                    <button type="button" onClick={quitarArchivo}
-                      className="bg-white border border-gray-200 rounded-full p-1.5 shadow hover:bg-red-50 hover:border-red-300 transition">
-                      <X className="w-3.5 h-3.5 text-gray-500 hover:text-red-600" />
-                    </button>
-                  </div>
+                  <img src={archivoPreview} alt="Soporte" className="w-full max-h-64 object-contain bg-gray-50" />
+                  <button type="button" onClick={quitarArchivo}
+                    className="absolute top-2 right-2 bg-white border border-gray-200 rounded-full p-1.5 shadow hover:bg-red-50">
+                    <X className="w-3.5 h-3.5 text-gray-500" />
+                  </button>
                 </div>
               ) : (
-                /* Preview de PDF */
                 <div className="flex items-center gap-4 p-4 bg-red-50">
                   <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
                     <FileCheck className="w-6 h-6 text-red-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">{archivo.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      PDF · {(archivo.size / 1024).toFixed(0)} KB
-                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">PDF · {(archivo.size / 1024).toFixed(0)} KB</p>
                   </div>
-                  <button type="button" onClick={quitarArchivo}
-                    className="text-gray-400 hover:text-red-500 transition flex-shrink-0">
+                  <button type="button" onClick={quitarArchivo} className="text-gray-400 hover:text-red-500 transition">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               )}
-              {/* Pie del archivo */}
               <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-t border-gray-100">
-                {archivoPreview
-                  ? <Image className="w-3.5 h-3.5 text-gray-400" />
-                  : <FileCheck className="w-3.5 h-3.5 text-gray-400" />}
                 <span className="text-xs text-gray-500 truncate flex-1">{archivo.name}</span>
                 <button type="button" onClick={() => inputFileRef.current?.click()}
                   className="text-xs text-indigo-600 font-semibold hover:underline flex-shrink-0">
                   Cambiar
                 </button>
-                <input
-                  ref={inputFileRef}
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={handleArchivo}
-                  className="hidden"
-                />
+                <input ref={inputFileRef} type="file" accept="image/*,application/pdf"
+                  onChange={handleArchivo} className="hidden" />
               </div>
             </div>
           )}
         </div>
 
-        {/* ── Acciones ── */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>
+        )}
+
         <div className="flex justify-end gap-3">
           <Link href="/dashboard/ordenes"
             className="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Cancelar
           </Link>
-          <button type="submit" disabled={guardando || guardado || !form.paciente_id}
+          <button type="submit" disabled={guardando || !form.paciente_id}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-60">
-            <Save className="w-4 h-4" />
-            {guardado ? "¡Guardada!" : guardando ? "Guardando..." : "Guardar Orden"}
+            {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {guardando ? "Guardando..." : "Guardar Orden"}
           </button>
         </div>
       </form>
