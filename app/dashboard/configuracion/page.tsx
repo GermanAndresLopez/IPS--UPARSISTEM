@@ -143,16 +143,20 @@ export default function ConfiguracionPage() {
   // ── Usuarios state ──
   const [usuarios,      setUsuarios]      = useState<Usuario[]>([]);
   const [editUser,      setEditUser]      = useState<Usuario | null>(null);
+  const [editPassword,  setEditPassword]  = useState("");
   const [showNuevoUser, setShowNuevoUser] = useState(false);
   const [nuevoUser,     setNuevoUser]     = useState({ nombre: "", correo: "", rol: "OPERATIVO", contrasena: "" });
 
   const saveUser = async (u: Usuario) => {
     try {
-      const updated = await usuariosApi.update(u.id, {
+      const payload: Record<string, unknown> = {
         nombre_completo: u.nombre_completo, correo: u.correo, rol: u.rol,
-      }) as Usuario;
+      };
+      if (editPassword.trim()) payload.contrasena = editPassword.trim();
+      const updated = await usuariosApi.update(u.id, payload) as Usuario;
       setUsuarios(prev => prev.map(x => x.id === u.id ? updated : x));
       setEditUser(null);
+      setEditPassword("");
     } catch (err: unknown) { alert((err as Error).message); }
   };
   const toggleUser = async (id: number) => {
@@ -298,6 +302,10 @@ export default function ConfiguracionPage() {
                               <input type="email" value={editUser.correo}
                                 onChange={e => setEditUser(p => p ? { ...p, correo: e.target.value } : p)}
                                 className="px-2 py-1.5 border border-indigo-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 w-full" />
+                              <input type="password" value={editPassword}
+                                onChange={e => setEditPassword(e.target.value)}
+                                placeholder="Nueva contraseña (opcional)"
+                                className="px-2 py-1.5 border border-indigo-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 w-full" />
                             </div>
                           </div>
                         </td>
@@ -318,7 +326,7 @@ export default function ConfiguracionPage() {
                               className="p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition" title="Guardar">
                               <Check className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={() => setEditUser(null)}
+                            <button onClick={() => { setEditUser(null); setEditPassword(""); }}
                               className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition" title="Cancelar">
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -356,7 +364,7 @@ export default function ConfiguracionPage() {
                         <td className="px-5 py-4 text-xs text-gray-500">{formatFecha(u.fecha_creacion)}</td>
                         <td className="px-5 py-4">
                           <button
-                            onClick={() => { setEditUser(u); setShowNuevoUser(false); }}
+                            onClick={() => { setEditUser(u); setEditPassword(""); setShowNuevoUser(false); }}
                             className="p-1.5 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition opacity-0 group-hover:opacity-100" title="Editar">
                             <Pencil className="w-4 h-4" />
                           </button>
