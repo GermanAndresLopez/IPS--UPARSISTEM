@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS ingresos_terapias (
   id           SERIAL        PRIMARY KEY,
   ingreso_id   INTEGER       NOT NULL REFERENCES ingresos(id) ON DELETE CASCADE,
   tipo_terapia VARCHAR(100)  NOT NULL,
-  terapeuta_id INTEGER       NOT NULL REFERENCES terapeutas(id)
+  terapeuta_id INTEGER       REFERENCES terapeutas(id)
 );
 
 -- Auditoría del sistema

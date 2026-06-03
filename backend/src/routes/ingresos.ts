@@ -34,7 +34,7 @@ const INGRESO_SELECT = `
           'ingreso_id', it.ingreso_id,
           'tipo_terapia', it.tipo_terapia,
           'terapeuta_id', it.terapeuta_id,
-          'terapeuta_nombre', t.nombre_completo
+          'terapeuta_nombre', COALESCE(t.nombre_completo, 'Sin especificar')
         ) ORDER BY it.id
       ) FILTER (WHERE it.id IS NOT NULL),
       '[]'::json
@@ -115,7 +115,7 @@ router.post(
         for (const t of terapias as { tipo_terapia: string; terapeuta_id: number }[]) {
           await txQuery(
             `INSERT INTO ingresos_terapias (ingreso_id, tipo_terapia, terapeuta_id) VALUES ($1,$2,$3)`,
-            [ingresoId, t.tipo_terapia, t.terapeuta_id]
+            [ingresoId, t.tipo_terapia, t.terapeuta_id || null]
           );
         }
 

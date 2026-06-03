@@ -142,8 +142,9 @@ export default function NuevoIngresoPage() {
         ingreso_id: Date.now(),
         tipo_terapia: t.tipo,
         terapeuta_id: Number(t.terapeuta_id),
-        terapeuta_nombre:
-          TERAPEUTAS.find(te => te.id === Number(t.terapeuta_id))?.nombre_completo ?? "—",
+        terapeuta_nombre: t.terapeuta_id === "0"
+          ? "Sin especificar"
+          : TERAPEUTAS.find(te => te.id === Number(t.terapeuta_id))?.nombre_completo ?? "—",
       })),
       total_terapias_dia: terapias.length,
       observaciones: obs,
@@ -434,6 +435,7 @@ export default function NuevoIngresoPage() {
                       <option value="">
                         — Seleccionar terapeuta ({t.tipo}) —
                       </option>
+                      <option value="0">Sin terapeuta especificado</option>
                       {terapeutasDisponibles.map(te => (
                         <option key={te.id} value={te.id}>
                           {te.nombre_completo} · {te.tipo_cargo}
