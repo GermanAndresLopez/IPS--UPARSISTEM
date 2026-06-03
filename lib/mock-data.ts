@@ -8,14 +8,14 @@ import type {
 // ===========================
 
 export const EPS_LIST: EPS[] = [
-  { id: 1, nombre: "SALUD TOTAL", activa: true },
-  { id: 2, nombre: "SANITAS", activa: true },
-  { id: 3, nombre: "NUEVA EPS", activa: true },
-  { id: 4, nombre: "SANIDAD POLICIA", activa: true },
-  { id: 5, nombre: "COOSALUD", activa: true },
-  { id: 6, nombre: "DUSAKAWI EPSI", activa: true },
-  { id: 7, nombre: "ALLIANZ", activa: true },
-  { id: 8, nombre: "PARTICULAR", activa: true },
+  { id: 1, nombre: "SALUD TOTAL",      activa: true,  persona_cargo: "Andrea Morales",  telefono: "6017001234", correo: "autorizaciones@saludtotal.com.co" },
+  { id: 2, nombre: "SANITAS",          activa: true,  persona_cargo: "Carlos Pérez",     telefono: "6014005678", correo: "autorizaciones@sanitas.com.co" },
+  { id: 3, nombre: "NUEVA EPS",        activa: true,  persona_cargo: "Luisa Ramírez",    telefono: "6013009012", correo: "autorizaciones@nuevaeps.gov.co" },
+  { id: 4, nombre: "SANIDAD POLICIA",  activa: true,  persona_cargo: "Mayor Torres",     telefono: "6013453456", correo: "sanidad@policia.gov.co" },
+  { id: 5, nombre: "COOSALUD",         activa: true,  persona_cargo: "Diana Gómez",      telefono: "6057007890", correo: "autorizaciones@coosalud.com.co" },
+  { id: 6, nombre: "DUSAKAWI EPSI",    activa: true,  persona_cargo: "José Ariza",       telefono: "6055001234", correo: "info@dusakawi.com.co" },
+  { id: 7, nombre: "ALLIANZ",          activa: false, persona_cargo: "Sandra López",     telefono: "6016005678", correo: "autorizaciones@allianz.com.co" },
+  { id: 8, nombre: "PARTICULAR",       activa: true },
 ];
 
 export const DIAGNOSTICOS: Diagnostico[] = [
@@ -32,16 +32,16 @@ export const DIAGNOSTICOS: Diagnostico[] = [
 ];
 
 export const TERAPEUTAS: Terapeuta[] = [
-  { id: 1,  nombre_completo: "ADALBA CAMARGO",      tipo_cargo: "Fonoaudiología",       fecha_inicio_cargo: "2022-01-10", activo: true },
-  { id: 2,  nombre_completo: "ADRIANA SANJUAN",     tipo_cargo: "Psicología",            fecha_inicio_cargo: "2021-03-15", activo: true },
-  { id: 3,  nombre_completo: "ANDREA ORTIZ",        tipo_cargo: "Terapia Ocupacional",   fecha_inicio_cargo: "2023-05-01", activo: true },
-  { id: 4,  nombre_completo: "CARLOS MORENO",       tipo_cargo: "Fisioterapia",          fecha_inicio_cargo: "2020-08-20", activo: true },
-  { id: 5,  nombre_completo: "DAYANA DAZA",         tipo_cargo: "Psicología",            fecha_inicio_cargo: "2022-06-01", activo: true },
-  { id: 6,  nombre_completo: "DAYANA HERNANDEZ",    tipo_cargo: "Fonoaudiología",        fecha_inicio_cargo: "2023-01-10", activo: true },
-  { id: 7,  nombre_completo: "DUNNIA CHAATELI",     tipo_cargo: "Neuropsicología",       fecha_inicio_cargo: "2021-11-05", activo: true },
-  { id: 8,  nombre_completo: "ELMIS PINTO",         tipo_cargo: "Terapia Ocupacional",   fecha_inicio_cargo: "2022-09-12", activo: true },
-  { id: 9,  nombre_completo: "SARA ALARCON",        tipo_cargo: "Fisioterapia",          fecha_inicio_cargo: "2023-03-01", activo: true },
-  { id: 10, nombre_completo: "VIVIANA RAMIREZ",     tipo_cargo: "Fonoaudiología",        fecha_inicio_cargo: "2020-02-14", activo: true },
+  { id: 1,  nombre_completo: "ADALBA CAMARGO",      tipo_cargo: "Fonoaudiología",       fecha_inicio_cargo: "2022-01-10", telefono: "3012345671", correo: "adalba.camargo@terapia.com",      activo: true },
+  { id: 2,  nombre_completo: "ADRIANA SANJUAN",     tipo_cargo: "Psicología",            fecha_inicio_cargo: "2021-03-15", telefono: "3012345672", correo: "adriana.sanjuan@terapia.com",     activo: true },
+  { id: 3,  nombre_completo: "ANDREA ORTIZ",        tipo_cargo: "Terapia Ocupacional",   fecha_inicio_cargo: "2023-05-01", telefono: "3012345673", correo: "andrea.ortiz@terapia.com",        activo: true },
+  { id: 4,  nombre_completo: "CARLOS MORENO",       tipo_cargo: "Fisioterapia",          fecha_inicio_cargo: "2020-08-20", telefono: "3012345674", correo: "carlos.moreno@terapia.com",       activo: true },
+  { id: 5,  nombre_completo: "DAYANA DAZA",         tipo_cargo: "Psicología",            fecha_inicio_cargo: "2022-06-01", telefono: "3012345675", correo: "dayana.daza@terapia.com",         activo: true },
+  { id: 6,  nombre_completo: "DAYANA HERNANDEZ",    tipo_cargo: "Fonoaudiología",        fecha_inicio_cargo: "2023-01-10", telefono: "3012345676", correo: "dayana.hernandez@terapia.com",    activo: true },
+  { id: 7,  nombre_completo: "DUNNIA CHAATELI",     tipo_cargo: "Neuropsicología",       fecha_inicio_cargo: "2021-11-05", telefono: "3012345677", correo: "dunnia.chaateli@terapia.com",     activo: true },
+  { id: 8,  nombre_completo: "ELMIS PINTO",         tipo_cargo: "Terapia Ocupacional",   fecha_inicio_cargo: "2022-09-12", telefono: "3012345678", correo: "elmis.pinto@terapia.com",         activo: true },
+  { id: 9,  nombre_completo: "SARA ALARCON",        tipo_cargo: "Fisioterapia",          fecha_inicio_cargo: "2023-03-01", telefono: "3012345679", correo: "sara.alarcon@terapia.com",        activo: true },
+  { id: 10, nombre_completo: "VIVIANA RAMIREZ",     tipo_cargo: "Fonoaudiología",        fecha_inicio_cargo: "2020-02-14", telefono: "3012345670", correo: "viviana.ramirez@terapia.com",     activo: true },
 ];
 
 export const USUARIOS_MOCK: Usuario[] = [
@@ -294,10 +294,14 @@ export const GRAFICA_DIAGNOSTICOS = [
 ];
 
 export const GRAFICA_EDADES = [
-  { rango: "0-5 años",    total: 12 },
-  { rango: "6-12 años",   total: 19 },
-  { rango: "13-17 años",  total: 7  },
-  { rango: "18-60 años",  total: 4  },
+  { rango: "0-3",   total: 6  },
+  { rango: "3-6",   total: 13 },
+  { rango: "6-9",   total: 16 },
+  { rango: "9-12",  total: 10 },
+  { rango: "12-15", total: 8  },
+  { rango: "15-18", total: 5  },
+  { rango: "18-21", total: 2  },
+  { rango: "+21",   total: 2  },
 ];
 
 // ===========================

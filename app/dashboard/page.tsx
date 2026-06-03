@@ -6,9 +6,9 @@ import {
 } from "recharts";
 import {
   Users, ClipboardList, Bell, TrendingUp,
-  AlertTriangle, UserCheck, UserX, Activity
+  AlertTriangle, UserCheck, UserX, Activity, Loader2
 } from "lucide-react";
-import { KPIS_MOCK, GRAFICA_ASISTENCIAS, GRAFICA_EPS, GRAFICA_DIAGNOSTICOS, GRAFICA_EDADES, ALERTAS_MOCK } from "@/lib/mock-data";
+import { dashboardApi, alertasApi } from "@/lib/api";
 import { formatFecha } from "@/lib/utils";
 
 const COLORS = ["#6366f1","#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6"];
@@ -31,16 +31,76 @@ function KpiCard({ icon, label, value, sub, color }: {
   );
 }
 
+interface KpiData {
+  ingresos_hoy: number; ingresos_semana: number; ingresos_mes: number;
+  pacientes_activos: number; pacientes_nuevos_mes: number;
+  pacientes_ausentes: number; ordenes_en_alerta: number; ordenes_vencidas: number;
+}
+
+interface GraficaData {
+  asistencias: { dia: string; total: number }[];
+  por_eps: { name: string; value: number }[];
+  por_diagnostico: { name: string; value: number }[];
+  por_edad: { rango: string; total: number }[];
+}
+
+interface Alerta {
+  id: number; tipo: string; prioridad: string;
+  paciente_nombre: string; descripcion: string; ultimo_ingreso?: string;
+}
+
 export default function DashboardPage() {
   const [userName, setUserName] = useState("Usuario");
+  const [kpi, setKpi] = useState<KpiData | null>(null);
+  const [graficas, setGraficas] = useState<GraficaData | null>(null);
+  const [alertas, setAlertas] = useState<Alerta[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const hoy = formatFecha(new Date().toISOString().split("T")[0]);
 
   useEffect(() => {
     const stored = localStorage.getItem("terapia_user");
     if (stored) setUserName(JSON.parse(stored).nombre.split(" ")[0]);
+
+    Promise.all([
+      dashboardApi.kpi() as Promise<KpiData>,
+      dashboardApi.graficas() as Promise<GraficaData>,
+      alertasApi.getAll() as Promise<Alerta[]>,
+    ])
+      .then(([kpiData, graficaData, alertasData]) => {
+        setKpi(kpiData);
+        setGraficas(graficaData);
+        setAlertas(alertasData);
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
   }, []);
 
-  const alertasCriticas = ALERTAS_MOCK.filter(a => a.prioridad === "ALTA");
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center">
+        <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-2" />
+        <p className="text-red-600 font-medium">Error al cargar datos</p>
+        <p className="text-gray-500 text-sm mt-1">{error}</p>
+        <p className="text-gray-400 text-xs mt-3">
+          Asegurate de que el backend esté corriendo en <code className="bg-gray-100 px-1 rounded">localhost:4000</code>
+        </p>
+      </div>
+    );
+  }
+
+  if (!kpi || !graficas) return null;
+
+  const alertasCriticas = alertas.filter(a => a.prioridad === "ALTA");
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -52,23 +112,24 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 px-4 py-2 rounded-xl text-sm font-medium">
           <Bell className="w-4 h-4" />
-          {ALERTAS_MOCK.length} alertas activas
+          {alertas.length} alertas activas
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs principales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard icon={<Activity className="w-6 h-6 text-indigo-600" />}    label="Ingresos hoy"         value={KPIS_MOCK.ingresos_hoy}        sub={`${KPIS_MOCK.ingresos_semana} esta semana`}    color="bg-indigo-50" />
-        <KpiCard icon={<UserCheck className="w-6 h-6 text-emerald-600" />}  label="Pacientes activos"    value={KPIS_MOCK.pacientes_activos}   sub={`+${KPIS_MOCK.pacientes_nuevos_mes} nuevos este mes`} color="bg-emerald-50" />
-        <KpiCard icon={<UserX className="w-6 h-6 text-amber-600" />}        label="Pacientes ausentes"   value={KPIS_MOCK.pacientes_ausentes}  sub="Sin asistencia +30 días"                       color="bg-amber-50" />
-        <KpiCard icon={<AlertTriangle className="w-6 h-6 text-red-600" />}  label="Órdenes en alerta"    value={KPIS_MOCK.ordenes_en_alerta}   sub={`${KPIS_MOCK.ordenes_vencidas} vencidas`}      color="bg-red-50" />
+        <KpiCard icon={<Activity className="w-6 h-6 text-indigo-600" />}    label="Ingresos hoy"       value={kpi.ingresos_hoy}        sub={`${kpi.ingresos_semana} esta semana`}          color="bg-indigo-50" />
+        <KpiCard icon={<UserCheck className="w-6 h-6 text-emerald-600" />}  label="Pacientes activos"  value={kpi.pacientes_activos}   sub={`+${kpi.pacientes_nuevos_mes} nuevos este mes`} color="bg-emerald-50" />
+        <KpiCard icon={<UserX className="w-6 h-6 text-amber-600" />}        label="Pacientes ausentes" value={kpi.pacientes_ausentes}  sub="Sin asistencia +30 días"                        color="bg-amber-50" />
+        <KpiCard icon={<AlertTriangle className="w-6 h-6 text-red-600" />}  label="Órdenes en alerta"  value={kpi.ordenes_en_alerta}   sub={`${kpi.ordenes_vencidas} vencidas`}            color="bg-red-50" />
       </div>
+
       {/* Stats adicionales */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Ingresos este mes", value: KPIS_MOCK.ingresos_mes, icon: <ClipboardList className="w-5 h-5 text-blue-500" />, color: "text-blue-600" },
-          { label: "Pacientes nuevos (mes)", value: KPIS_MOCK.pacientes_nuevos_mes, icon: <Users className="w-5 h-5 text-emerald-500" />, color: "text-emerald-600" },
-          { label: "Órdenes vencidas", value: KPIS_MOCK.ordenes_vencidas, icon: <AlertTriangle className="w-5 h-5 text-red-500" />, color: "text-red-600" },
+          { label: "Ingresos este mes",      value: kpi.ingresos_mes,          icon: <ClipboardList className="w-5 h-5 text-blue-500" />,    color: "text-blue-600" },
+          { label: "Pacientes nuevos (mes)", value: kpi.pacientes_nuevos_mes,  icon: <Users className="w-5 h-5 text-emerald-500" />,          color: "text-emerald-600" },
+          { label: "Órdenes vencidas",       value: kpi.ordenes_vencidas,      icon: <AlertTriangle className="w-5 h-5 text-red-500" />,      color: "text-red-600" },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-3">
             {s.icon}
@@ -86,17 +147,14 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-indigo-500" />
-            Asistencias esta semana
+            Asistencias — últimos 7 días
           </h3>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={GRAFICA_ASISTENCIAS} barSize={36}>
+            <BarChart data={graficas.asistencias} barSize={36}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="dia" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: 12 }}
-                cursor={{ fill: "#f8fafc" }}
-              />
+              <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: 12 }} cursor={{ fill: "#f8fafc" }} />
               <Bar dataKey="total" fill="#6366f1" radius={[6,6,0,0]} name="Ingresos" />
             </BarChart>
           </ResponsiveContainer>
@@ -108,18 +166,20 @@ export default function DashboardPage() {
             <Users className="w-5 h-5 text-indigo-500" />
             Por EPS
           </h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={GRAFICA_EPS} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
-                dataKey="value" paddingAngle={3}>
-                {GRAFICA_EPS.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: 11 }} />
-              <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
-            </PieChart>
-          </ResponsiveContainer>
+          {graficas.por_eps.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie data={graficas.por_eps} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
+                  dataKey="value" paddingAngle={3}>
+                  {graficas.por_eps.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: 11 }} />
+                <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[200px] flex items-center justify-center text-gray-400 text-sm">Sin datos</div>
+          )}
         </div>
       </div>
 
@@ -128,29 +188,37 @@ export default function DashboardPage() {
         {/* Diagnósticos */}
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <h3 className="font-semibold text-gray-900 mb-4">Distribución por Diagnóstico</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={GRAFICA_DIAGNOSTICOS} layout="vertical" barSize={14}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={160} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: 12 }} />
-              <Bar dataKey="value" fill="#6366f1" radius={[0,6,6,0]} name="Pacientes" />
-            </BarChart>
-          </ResponsiveContainer>
+          {graficas.por_diagnostico.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={graficas.por_diagnostico} layout="vertical" barSize={14}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={160} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: 12 }} />
+                <Bar dataKey="value" fill="#6366f1" radius={[0,6,6,0]} name="Pacientes" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[220px] flex items-center justify-center text-gray-400 text-sm">Sin datos</div>
+          )}
         </div>
 
         {/* Rango etario */}
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <h3 className="font-semibold text-gray-900 mb-4">Distribución por Rango Etario</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={GRAFICA_EDADES} barSize={40}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="rango" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: 12 }} />
-              <Bar dataKey="total" fill="#10b981" radius={[6,6,0,0]} name="Pacientes" />
-            </BarChart>
-          </ResponsiveContainer>
+          {graficas.por_edad.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={graficas.por_edad} barSize={40}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="rango" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: 12 }} />
+                <Bar dataKey="total" fill="#10b981" radius={[6,6,0,0]} name="Pacientes" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[220px] flex items-center justify-center text-gray-400 text-sm">Sin datos</div>
+          )}
         </div>
       </div>
 
@@ -179,8 +247,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      
     </div>
   );
 }

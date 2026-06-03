@@ -113,6 +113,7 @@ export function Sidebar({ userRol, userName }: SidebarProps) {
           <button
             onClick={() => {
               localStorage.removeItem("terapia_user");
+              localStorage.removeItem("session");
               window.location.href = "/login";
             }}
             className="text-gray-400 hover:text-red-500 transition"

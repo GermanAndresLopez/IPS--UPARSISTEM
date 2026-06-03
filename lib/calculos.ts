@@ -54,11 +54,14 @@ export function calcularEdad(fechaNacimiento: string): number {
 
 export function rangoEtario(fechaNacimiento: string): string {
   const edad = calcularEdad(fechaNacimiento);
-  if (edad <= 5)  return "0-5 años";
-  if (edad <= 12) return "6-12 años";
-  if (edad <= 17) return "13-17 años";
-  if (edad <= 60) return "18-60 años";
-  return "Más de 60";
+  if (edad < 3)  return "0-3";
+  if (edad < 6)  return "3-6";
+  if (edad < 9)  return "6-9";
+  if (edad < 12) return "9-12";
+  if (edad < 15) return "12-15";
+  if (edad < 18) return "15-18";
+  if (edad < 21) return "18-21";
+  return "+21";
 }
 
 // ===========================

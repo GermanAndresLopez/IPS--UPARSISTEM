@@ -2,37 +2,50 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Heart } from "lucide-react";
+import { authApi } from "@/lib/api";
 
-const USUARIOS = [
-  { correo: "admin@terapia.com",       password: "admin123",  rol: "ADMIN",       nombre: "Carlos Administrador" },
-  { correo: "laura@terapia.com",       password: "coord123",  rol: "COORDINADOR", nombre: "Laura Coordinadora"   },
-  { correo: "maria@terapia.com",       password: "oper123",   rol: "OPERATIVO",   nombre: "María Operativa"      },
+const DEMOS = [
+  { correo: "admin@terapia.com", rol: "ADMIN",       nombre: "Carlos Administrador" },
+  { correo: "laura@terapia.com", rol: "COORDINADOR", nombre: "Laura Coordinadora"   },
+  { correo: "maria@terapia.com", rol: "OPERATIVO",   nombre: "María Operativa"      },
 ];
 
 export default function LoginPage() {
   const router = useRouter();
-  const [correo, setCorreo]       = useState("");
-  const [password, setPassword]   = useState("");
-  const [showPass, setShowPass]   = useState(false);
-  const [error, setError]         = useState("");
-  const [loading, setLoading]     = useState(false);
+  const [correo, setCorreo]     = useState("");
+  const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [error, setError]       = useState("");
+  const [loading, setLoading]   = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    setTimeout(() => {
-      const user = USUARIOS.find(u => u.correo === correo && u.password === password);
-      if (user) {
-        if (typeof window !== "undefined") {
-          localStorage.setItem("terapia_user", JSON.stringify(user));
-        }
-        router.push("/dashboard");
-      } else {
-        setError("Correo o contraseña incorrectos.");
-      }
+    try {
+      const data = await authApi.login(correo.trim(), password);
+
+      // Guardar token para las llamadas API
+      localStorage.setItem(
+        "session",
+        JSON.stringify({ token: data.token, ...data.usuario })
+      );
+      // Guardar en formato legacy para layout/sidebar (sin cambiar esos archivos)
+      localStorage.setItem(
+        "terapia_user",
+        JSON.stringify({
+          nombre: data.usuario.nombre_completo,
+          rol: data.usuario.rol,
+          correo: data.usuario.correo,
+        })
+      );
+
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al iniciar sesión");
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
@@ -104,14 +117,17 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Accesos rápidos para demo */}
+          {/* Accesos rápidos */}
           <div className="mt-6 pt-5 border-t border-gray-100">
-            <p className="text-xs text-gray-400 text-center mb-3">Accesos de demostración</p>
+            <p className="text-xs text-gray-400 text-center mb-1">Accesos de demostración</p>
+            <p className="text-xs text-gray-400 text-center mb-3">
+              Contraseña: <span className="font-mono font-semibold text-indigo-600">Terapia2024!</span>
+            </p>
             <div className="space-y-2">
-              {USUARIOS.map(u => (
+              {DEMOS.map(u => (
                 <button
                   key={u.correo}
-                  onClick={() => { setCorreo(u.correo); setPassword(u.password); }}
+                  onClick={() => { setCorreo(u.correo); setPassword("Terapia2024!"); }}
                   className="w-full text-left px-3 py-2 rounded-lg bg-gray-50 hover:bg-indigo-50 text-xs text-gray-600 hover:text-indigo-700 transition flex justify-between items-center"
                 >
                   <span className="font-medium">{u.nombre}</span>
@@ -128,7 +144,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          TerapiaApp v1.0 · Centro de Terapias
+          TerapiaApp v2.0 · Centro de Terapias
         </p>
       </div>
     </div>

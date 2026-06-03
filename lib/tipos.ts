@@ -49,6 +49,9 @@ export interface EPS {
   id: number;
   nombre: string;
   activa: boolean;
+  persona_cargo?: string;
+  telefono?: string;
+  correo?: string;
 }
 
 export interface Diagnostico {
@@ -64,6 +67,8 @@ export interface Terapeuta {
   tipo_cargo: string;
   fecha_inicio_cargo: string;
   fecha_fin_cargo?: string;
+  telefono?: string;
+  correo?: string;
   activo: boolean;
 }
 
