@@ -84,10 +84,18 @@ export interface TipoIngreso {
   activo: boolean;
 }
 
+export type TipoDocumento = "CC" | "CE" | "TI" | "RC" | "PA";
+
 export interface Paciente {
   id: number;
+  primer_apellido: string;
+  segundo_apellido?: string;
+  primer_nombre: string;
+  segundo_nombre?: string;
   nombre_completo: string;
+  tipo_documento: TipoDocumento;
   documento_identidad: string;
+  correo?: string;
   fecha_nacimiento: string;
   sexo: SexoPaciente;
   telefono_1: string;

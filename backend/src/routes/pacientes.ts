@@ -50,9 +50,12 @@ const PACIENTE_SELECT = `
     ORDER BY o.paciente_id, o.fecha_registro DESC
   )
   SELECT
-    p.id, p.nombre_completo, p.documento_identidad,
+    p.id,
+    p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre,
+    TRIM(CONCAT_WS(' ', p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre)) AS nombre_completo,
+    p.tipo_documento, p.documento_identidad,
     TO_CHAR(p.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
-    p.sexo, p.telefono_1, p.telefono_2,
+    p.sexo, p.telefono_1, p.telefono_2, p.correo,
     p.eps_id, e.nombre AS eps_nombre,
     p.tipo_paciente,
     p.diagnostico_id, d.codigo_cie10, d.descripcion AS diagnostico_nombre,
@@ -112,10 +115,13 @@ router.get("/buscar", async (req: AuthRequest, res: Response): Promise<void> => 
   try {
     const q = `%${req.query.q || ""}%`;
     const r = await query(
-      `SELECT id, nombre_completo, documento_identidad, tipo_paciente
+      `SELECT id, documento_identidad, tipo_paciente,
+         TRIM(CONCAT_WS(' ', primer_apellido, segundo_apellido, primer_nombre, segundo_nombre)) AS nombre_completo
        FROM pacientes
-       WHERE nombre_completo ILIKE $1 OR documento_identidad ILIKE $1
-       ORDER BY nombre_completo LIMIT 10`,
+       WHERE primer_apellido ILIKE $1 OR primer_nombre ILIKE $1
+          OR segundo_apellido ILIKE $1 OR segundo_nombre ILIKE $1
+          OR documento_identidad ILIKE $1
+       ORDER BY primer_apellido, primer_nombre LIMIT 10`,
       [q]
     );
     res.json(r.rows);
@@ -144,33 +150,38 @@ router.post(
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const {
-        nombre_completo, documento_identidad, fecha_nacimiento, sexo,
-        telefono_1, telefono_2, eps_id, tipo_paciente, diagnostico_id, novedad,
+        primer_apellido, segundo_apellido, primer_nombre, segundo_nombre,
+        tipo_documento, documento_identidad, fecha_nacimiento, sexo,
+        telefono_1, telefono_2, correo, eps_id, tipo_paciente, diagnostico_id, novedad,
       } = req.body;
 
-      if (!nombre_completo || !documento_identidad || !fecha_nacimiento || !sexo || !telefono_1 || !tipo_paciente || !diagnostico_id) {
+      if (!primer_apellido || !primer_nombre || !documento_identidad || !fecha_nacimiento || !sexo || !telefono_1 || !tipo_paciente || !diagnostico_id) {
         res.status(400).json({ error: "Faltan campos requeridos" });
         return;
       }
 
       const r = await query(
         `INSERT INTO pacientes
-          (nombre_completo, documento_identidad, fecha_nacimiento, sexo,
-           telefono_1, telefono_2, eps_id, tipo_paciente, diagnostico_id,
+          (primer_apellido, segundo_apellido, primer_nombre, segundo_nombre,
+           tipo_documento, documento_identidad, fecha_nacimiento, sexo,
+           telefono_1, telefono_2, correo, eps_id, tipo_paciente, diagnostico_id,
            novedad, registrado_por_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id`,
         [
-          nombre_completo.toUpperCase(), documento_identidad, fecha_nacimiento,
-          sexo, telefono_1, telefono_2 || null, eps_id || null, tipo_paciente,
-          diagnostico_id, novedad || "SIN_NOVEDAD", req.user!.id,
+          primer_apellido.toUpperCase(), segundo_apellido?.toUpperCase() || null,
+          primer_nombre.toUpperCase(), segundo_nombre?.toUpperCase() || null,
+          tipo_documento || "CC", documento_identidad,
+          fecha_nacimiento, sexo, telefono_1, telefono_2 || null, correo || null,
+          eps_id || null, tipo_paciente, diagnostico_id, novedad || "SIN_NOVEDAD", req.user!.id,
         ]
       );
       const newId = r.rows[0]["id"];
+      const nombreCompleto = [primer_apellido, segundo_apellido, primer_nombre, segundo_nombre].filter(Boolean).join(" ").toUpperCase();
 
       await query(
         `INSERT INTO auditoria (usuario_id, tipo_accion, modulo, registro_id, descripcion)
          VALUES ($1,'CREAR','PACIENTES',$2,$3)`,
-        [req.user!.id, newId, `Registró nuevo paciente ${nombre_completo}`]
+        [req.user!.id, newId, `Registró nuevo paciente ${nombreCompleto}`]
       );
 
       const full = await query(`${PACIENTE_SELECT} WHERE p.id = $1`, [newId]);
@@ -194,20 +205,24 @@ router.put(
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const {
-        nombre_completo, documento_identidad, fecha_nacimiento, sexo,
-        telefono_1, telefono_2, eps_id, tipo_paciente, diagnostico_id, novedad,
+        primer_apellido, segundo_apellido, primer_nombre, segundo_nombre,
+        tipo_documento, documento_identidad, fecha_nacimiento, sexo,
+        telefono_1, telefono_2, correo, eps_id, tipo_paciente, diagnostico_id, novedad,
       } = req.body;
 
       const r = await query(
         `UPDATE pacientes SET
-          nombre_completo=$1, documento_identidad=$2, fecha_nacimiento=$3, sexo=$4,
-          telefono_1=$5, telefono_2=$6, eps_id=$7, tipo_paciente=$8,
-          diagnostico_id=$9, novedad=$10
-         WHERE id=$11 RETURNING id`,
+          primer_apellido=$1, segundo_apellido=$2, primer_nombre=$3, segundo_nombre=$4,
+          tipo_documento=$5, documento_identidad=$6, fecha_nacimiento=$7, sexo=$8,
+          telefono_1=$9, telefono_2=$10, correo=$11, eps_id=$12, tipo_paciente=$13,
+          diagnostico_id=$14, novedad=$15
+         WHERE id=$16 RETURNING id`,
         [
-          nombre_completo?.toUpperCase(), documento_identidad, fecha_nacimiento, sexo,
-          telefono_1, telefono_2 || null, eps_id || null, tipo_paciente,
-          diagnostico_id, novedad || "SIN_NOVEDAD", req.params.id,
+          primer_apellido?.toUpperCase(), segundo_apellido?.toUpperCase() || null,
+          primer_nombre?.toUpperCase(), segundo_nombre?.toUpperCase() || null,
+          tipo_documento || "CC", documento_identidad,
+          fecha_nacimiento, sexo, telefono_1, telefono_2 || null, correo || null,
+          eps_id || null, tipo_paciente, diagnostico_id, novedad || "SIN_NOVEDAD", req.params.id,
         ]
       );
       if (!r.rows[0]) { res.status(404).json({ error: "Paciente no encontrado" }); return; }

@@ -12,7 +12,7 @@ router.use(authenticate);
 const INGRESO_SELECT = `
   SELECT
     i.id, i.fecha, i.hora::text, i.paciente_id,
-    p.nombre_completo AS paciente_nombre,
+    TRIM(CONCAT_WS(' ', p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre)) AS paciente_nombre,
     i.orden_id, i.tipo_ingreso_id,
     ti.nombre AS tipo_ingreso_nombre,
     i.observaciones,
@@ -48,7 +48,7 @@ const INGRESO_SELECT = `
   LEFT JOIN terapeutas t ON t.id = it.terapeuta_id
 `;
 const INGRESO_GROUP = `
-  GROUP BY i.id, p.nombre_completo, ti.nombre, u.nombre_completo
+  GROUP BY i.id, p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre, ti.nombre, u.nombre_completo
 `;
 
 // GET /api/ingresos
@@ -102,6 +102,19 @@ router.post(
         return;
       }
 
+      // Validar que pacientes ORDEN tengan una orden activa
+      const pacCheck = await query(
+        `SELECT tipo_paciente FROM pacientes WHERE id = $1`, [paciente_id]
+      );
+      if (!pacCheck.rows[0]) {
+        res.status(404).json({ error: "Paciente no encontrado" });
+        return;
+      }
+      if (pacCheck.rows[0]["tipo_paciente"] === "ORDEN" && !orden_id) {
+        res.status(400).json({ error: "Este paciente requiere una orden activa para registrar un ingreso. Cree una orden primero." });
+        return;
+      }
+
       const newId = await withTransaction(async (txQuery) => {
         // Crear ingreso
         const ir = await txQuery(
@@ -128,7 +141,10 @@ router.post(
         }
 
         // Auditoría
-        const pacR = await txQuery("SELECT nombre_completo FROM pacientes WHERE id=$1", [paciente_id]);
+        const pacR = await txQuery(
+          `SELECT TRIM(CONCAT_WS(' ', primer_apellido, segundo_apellido, primer_nombre, segundo_nombre)) AS nombre_completo
+           FROM pacientes WHERE id=$1`, [paciente_id]
+        );
         const nombre = pacR.rows[0]?.["nombre_completo"] ?? `ID ${paciente_id}`;
         await txQuery(
           `INSERT INTO auditoria (usuario_id, tipo_accion, modulo, registro_id, descripcion)

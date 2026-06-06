@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/src/index.js",
-    "seed": "tsx sql/seed.ts"
+    "seed": "tsx sql/seed.ts",
+    "migrate": "tsx sql/migrate.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

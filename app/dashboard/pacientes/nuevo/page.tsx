@@ -10,9 +10,10 @@ export default function NuevoPacientePage() {
   const router = useRouter();
 
   const [form, setForm] = useState({
-    nombre_completo: "", documento_identidad: "", fecha_nacimiento: "",
-    sexo: "MASCULINO", telefono_1: "", telefono_2: "",
-    tipo_paciente: "ORDEN", eps_id: "", diagnostico_id: "", novedad: "SIN_NOVEDAD",
+    primer_apellido: "", segundo_apellido: "", primer_nombre: "", segundo_nombre: "",
+    tipo_documento: "CC", documento_identidad: "",
+    fecha_nacimiento: "", sexo: "MASCULINO", telefono_1: "", telefono_2: "",
+    correo: "", tipo_paciente: "ORDEN", eps_id: "", diagnostico_id: "", novedad: "SIN_NOVEDAD",
   });
 
   const [epsList,      setEpsList]      = useState<EPS[]>([]);
@@ -49,12 +50,17 @@ export default function NuevoPacientePage() {
     setGuardando(true);
     try {
       await pacientesApi.create({
-        nombre_completo:     form.nombre_completo,
+        primer_apellido:     form.primer_apellido,
+        segundo_apellido:    form.segundo_apellido || undefined,
+        primer_nombre:       form.primer_nombre,
+        segundo_nombre:      form.segundo_nombre || undefined,
+        tipo_documento:      form.tipo_documento,
         documento_identidad: form.documento_identidad,
         fecha_nacimiento:    form.fecha_nacimiento,
         sexo:                form.sexo,
         telefono_1:          form.telefono_1,
         telefono_2:          form.telefono_2 || undefined,
+        correo:              form.correo || undefined,
         tipo_paciente:       form.tipo_paciente,
         eps_id:              form.tipo_paciente === "ORDEN" && form.eps_id ? Number(form.eps_id) : undefined,
         diagnostico_id:      Number(form.diagnostico_id),
@@ -97,19 +103,45 @@ export default function NuevoPacientePage() {
             Datos Personales
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Nombre completo (apellidos + nombre)
-              </label>
-              <input type="text" name="nombre_completo" value={form.nombre_completo}
-                onChange={handleChange} required placeholder="Ej: GARCIA LOPEZ JUAN PABLO"
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Primer apellido <span className="text-red-500">*</span></label>
+              <input type="text" name="primer_apellido" value={form.primer_apellido ?? ""}
+                onChange={handleChange} required placeholder="GARCÍA"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Documento de identidad</label>
-              <input type="text" name="documento_identidad" value={form.documento_identidad}
-                onChange={handleChange} required placeholder="CC / TI / RC"
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Segundo apellido</label>
+              <input type="text" name="segundo_apellido" value={form.segundo_apellido ?? ""}
+                onChange={handleChange} placeholder="LÓPEZ (opcional)"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Primer nombre <span className="text-red-500">*</span></label>
+              <input type="text" name="primer_nombre" value={form.primer_nombre ?? ""}
+                onChange={handleChange} required placeholder="JUAN"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Segundo nombre</label>
+              <input type="text" name="segundo_nombre" value={form.segundo_nombre ?? ""}
+                onChange={handleChange} placeholder="PABLO (opcional)"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Documento de identidad <span className="text-red-500">*</span></label>
+              <div className="flex gap-2">
+                <select name="tipo_documento" value={form.tipo_documento} onChange={handleChange}
+                  className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white flex-shrink-0">
+                  <option value="CC">Cédula de Ciudadanía</option>
+                  <option value="CE">Cédula de Extranjería</option>
+                  <option value="TI">Tarjeta de Identidad</option>
+                  <option value="RC">Registro Civil</option>
+                  <option value="PA">Pasaporte</option>
+                </select>
+                <input type="text" name="documento_identidad" value={form.documento_identidad ?? ""}
+                  onChange={handleChange} required placeholder="Número de documento"
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Fecha de nacimiento</label>
@@ -133,8 +165,14 @@ export default function NuevoPacientePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Teléfono secundario (opcional)</label>
-              <input type="tel" name="telefono_2" value={form.telefono_2}
+              <input type="tel" name="telefono_2" value={form.telefono_2 ?? ""}
                 onChange={handleChange} placeholder="3007654321"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico (opcional)</label>
+              <input type="email" name="correo" value={form.correo ?? ""}
+                onChange={handleChange} placeholder="ejemplo@correo.com"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>

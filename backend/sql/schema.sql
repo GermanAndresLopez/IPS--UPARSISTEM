@@ -61,12 +61,18 @@ CREATE TABLE IF NOT EXISTS tipos_ingreso (
 -- Pacientes
 CREATE TABLE IF NOT EXISTS pacientes (
   id                   SERIAL        PRIMARY KEY,
-  nombre_completo      VARCHAR(200)  NOT NULL,
+  primer_apellido      VARCHAR(100)  NOT NULL,
+  segundo_apellido     VARCHAR(100),
+  primer_nombre        VARCHAR(100)  NOT NULL,
+  segundo_nombre       VARCHAR(100),
+  tipo_documento       VARCHAR(10)   NOT NULL DEFAULT 'CC'
+                       CHECK (tipo_documento IN ('CC','CE','TI','RC','PA')),
   documento_identidad  VARCHAR(50)   NOT NULL UNIQUE,
   fecha_nacimiento     DATE          NOT NULL,
   sexo                 VARCHAR(10)   NOT NULL CHECK (sexo IN ('MASCULINO','FEMENINO')),
   telefono_1           VARCHAR(50)   NOT NULL,
   telefono_2           VARCHAR(50),
+  correo               VARCHAR(200),
   eps_id               INTEGER       REFERENCES eps(id),
   tipo_paciente        VARCHAR(20)   NOT NULL CHECK (tipo_paciente IN ('ORDEN','PARTICULAR')),
   diagnostico_id       INTEGER       NOT NULL REFERENCES diagnosticos(id),
@@ -139,6 +145,29 @@ CREATE TABLE IF NOT EXISTS auditoria (
   valor_anterior TEXT,
   valor_nuevo    TEXT
 );
+
+-- Migraciones para bases de datos existentes
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS tipo_documento VARCHAR(10) DEFAULT 'CC'
+  CHECK (tipo_documento IN ('CC','CE','TI','RC','PA'));
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS correo VARCHAR(200);
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS primer_apellido VARCHAR(100);
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS segundo_apellido VARCHAR(100);
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS primer_nombre VARCHAR(100);
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS segundo_nombre VARCHAR(100);
+-- Poblar los campos de nombre desde nombre_completo existente (formato: APELLIDO1 APELLIDO2 NOMBRE1 NOMBRE2)
+UPDATE pacientes SET
+  primer_apellido  = COALESCE(split_part(nombre_completo, ' ', 1), ''),
+  segundo_apellido = NULLIF(CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
+                       THEN split_part(nombre_completo, ' ', 2) ELSE NULL END, ''),
+  primer_nombre    = CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
+                       THEN split_part(nombre_completo, ' ', 3)
+                       WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) = 3
+                       THEN split_part(nombre_completo, ' ', 2)
+                       ELSE split_part(nombre_completo, ' ', 2) END,
+  segundo_nombre   = NULLIF(CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
+                       THEN split_part(nombre_completo, ' ', 4) ELSE NULL END, '')
+WHERE primer_apellido IS NULL AND nombre_completo IS NOT NULL;
+ALTER TABLE pacientes DROP COLUMN IF EXISTS nombre_completo;
 
 -- Índices para mejorar rendimiento
 CREATE INDEX IF NOT EXISTS idx_pacientes_documento ON pacientes(documento_identidad);

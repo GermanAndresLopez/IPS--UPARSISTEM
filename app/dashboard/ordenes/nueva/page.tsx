@@ -4,10 +4,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Save, FileText, Search, UserPlus,
-  Upload, X, FileCheck, Loader2,
+  Upload, X, FileCheck, Loader2, AlertCircle,
 } from "lucide-react";
 import { ordenesApi, terapeutasApi, modalidadesApi, pacientesApi } from "@/lib/api";
-import type { Terapeuta, Modalidad } from "@/lib/tipos";
+import type { Terapeuta, Modalidad, Paciente } from "@/lib/tipos";
 
 interface PacienteBusqueda {
   id: number; nombre_completo: string; documento_identidad: string; tipo_paciente: string;
@@ -35,8 +35,9 @@ export default function NuevaOrdenPage() {
     fecha_emision: "", fecha_inicio: "", fecha_fin: "",
     sesiones_autorizadas: "", terapeuta_inicial_id: "", modalidad_id: "",
   });
-  const [guardando, setGuardando] = useState(false);
-  const [error,     setError]     = useState("");
+  const [guardando,          setGuardando]          = useState(false);
+  const [error,              setError]              = useState("");
+  const [ordenActivaError,   setOrdenActivaError]   = useState("");
 
   const [busqueda,       setBusqueda]       = useState("");
   const [pacienteNombre, setPacienteNombre] = useState("");
@@ -54,15 +55,26 @@ export default function NuevaOrdenPage() {
     } catch { setSugerencias([]); }
   };
 
-  const seleccionarPaciente = (p: PacienteBusqueda) => {
-    setForm(prev => ({ ...prev, paciente_id: String(p.id) }));
-    setPacienteNombre(p.nombre_completo);
+  const seleccionarPaciente = async (p: PacienteBusqueda) => {
     setBusqueda(""); setSugerencias([]); setMostrarLista(false);
+    setOrdenActivaError("");
+    try {
+      const full = await pacientesApi.getById(p.id) as Paciente;
+      if (full.orden_activa && !["VENCIDA","INACTIVO"].includes(full.orden_activa.estado)) {
+        setOrdenActivaError(`Este paciente ya tiene una orden activa (#${full.orden_activa.id}). Debe cerrar la orden actual antes de crear una nueva.`);
+        return;
+      }
+      setForm(prev => ({ ...prev, paciente_id: String(p.id) }));
+      setPacienteNombre(p.nombre_completo);
+    } catch {
+      setForm(prev => ({ ...prev, paciente_id: String(p.id) }));
+      setPacienteNombre(p.nombre_completo);
+    }
   };
 
   const limpiarPaciente = () => {
     setForm(prev => ({ ...prev, paciente_id: "" }));
-    setPacienteNombre(""); setBusqueda("");
+    setPacienteNombre(""); setBusqueda(""); setOrdenActivaError("");
   };
 
   const [archivo,        setArchivo]        = useState<File | null>(null);
@@ -333,6 +345,11 @@ export default function NuevaOrdenPage() {
           )}
         </div>
 
+        {ordenActivaError && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" /> {ordenActivaError}
+          </div>
+        )}
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>
         )}
@@ -342,7 +359,7 @@ export default function NuevaOrdenPage() {
             className="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Cancelar
           </Link>
-          <button type="submit" disabled={guardando || !form.paciente_id}
+          <button type="submit" disabled={guardando || !form.paciente_id || !!ordenActivaError}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-60">
             {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {guardando ? "Guardando..." : "Guardar Orden"}

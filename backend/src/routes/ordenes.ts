@@ -63,7 +63,7 @@ const ORDEN_SELECT = `
     o.activa, o.archivo_adjunto,
     u.nombre_completo AS registrada_por,
     TO_CHAR(o.fecha_registro, 'YYYY-MM-DD') AS fecha_registro,
-    p.nombre_completo AS paciente_nombre
+    TRIM(CONCAT_WS(' ', p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre)) AS paciente_nombre
   FROM ordenes o
   JOIN modalidades m ON m.id = o.modalidad_id
   JOIN terapeutas t ON t.id = o.terapeuta_inicial_id
@@ -119,6 +119,16 @@ router.post(
 
       if (!paciente_id || !tipo_limite || !fecha_emision || !fecha_inicio || !modalidad_id || !terapeuta_inicial_id) {
         res.status(400).json({ error: "Faltan campos requeridos" });
+        return;
+      }
+
+      // Un paciente solo puede tener una orden activa a la vez
+      const existing = await query(
+        `SELECT id FROM ordenes WHERE paciente_id = $1 AND activa = true LIMIT 1`,
+        [paciente_id]
+      );
+      if (existing.rows.length > 0) {
+        res.status(409).json({ error: `El paciente ya tiene una orden activa (#${existing.rows[0]["id"]}). Cierre o venza la orden actual antes de crear una nueva.` });
         return;
       }
 

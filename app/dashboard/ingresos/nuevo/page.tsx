@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, X, Save, AlertTriangle, CheckCircle, Search, Loader2 } from "lucide-react";
 import { ingresosApi, pacientesApi, terapeutasApi, tiposIngresoApi } from "@/lib/api";
+import { AlertCircle } from "lucide-react";
 import { getEstadoConfig, requiereAlerta, requiereAlertaSesiones } from "@/lib/calculos";
 import { formatFecha } from "@/lib/utils";
 import type { Paciente, Terapeuta, TipoIngreso } from "@/lib/tipos";
@@ -58,10 +59,11 @@ export default function NuevoIngresoPage() {
     }
   }, [tiposIngreso, tipoIngreso]);
 
-  const orden          = paciente?.orden_activa;
-  const estadoOrden    = orden ? getEstadoConfig(orden.estado) : null;
-  const ordenBloqueada = orden && ["VENCIDA","INACTIVO"].includes(orden.estado);
-  const esSinOrden     = paciente?.tipo_paciente === "PARTICULAR";
+  const orden              = paciente?.orden_activa;
+  const estadoOrden        = orden ? getEstadoConfig(orden.estado) : null;
+  const ordenBloqueada     = orden && ["VENCIDA","INACTIVO"].includes(orden.estado);
+  const esSinOrden         = paciente?.tipo_paciente === "PARTICULAR";
+  const sinOrdenRequerida  = !!paciente && !esSinOrden && !orden;
 
   const handleBusqueda = useCallback(async (valor: string) => {
     setBusqueda(valor);
@@ -73,8 +75,14 @@ export default function NuevoIngresoPage() {
     } catch { setSugerencias([]); }
   }, []);
 
-  const seleccionarPaciente = (p: Paciente) => {
-    setPaciente(p); setBusqueda(p.nombre_completo); setSugerencias([]); setShowSug(false);
+  const seleccionarPaciente = async (p: Paciente) => {
+    setBusqueda(p.nombre_completo); setSugerencias([]); setShowSug(false);
+    try {
+      const full = await pacientesApi.getById(p.id) as Paciente;
+      setPaciente(full);
+    } catch {
+      setPaciente(p);
+    }
   };
 
   useEffect(() => {
@@ -99,7 +107,7 @@ export default function NuevoIngresoPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paciente || (ordenBloqueada && !esSinOrden)) return;
+    if (!paciente || sinOrdenRequerida || (ordenBloqueada && !esSinOrden)) return;
     setError(""); setGuardando(true);
     try {
       await ingresosApi.create({
@@ -214,7 +222,9 @@ export default function NuevoIngresoPage() {
                       <span className={`font-semibold ${estadoOrden?.color}`}>Orden {estadoOrden?.label}</span>
                     </>
                   ) : (
-                    <span className="text-gray-400">Sin orden activa</span>
+                    <span className="flex items-center gap-1 text-red-600 font-semibold">
+                      <AlertCircle className="w-3.5 h-3.5" /> Sin orden activa
+                    </span>
                   )}
                 </div>
                 <p><span className="text-gray-400">Diagnóstico: </span>
@@ -243,6 +253,12 @@ export default function NuevoIngresoPage() {
                   </>
                 )}
               </div>
+              {sinOrdenRequerida && (
+                <div className="mt-2 p-2.5 bg-red-100 rounded-lg text-red-700 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  Este paciente no tiene una orden activa. Debe crear una orden antes de registrar un ingreso.
+                </div>
+              )}
               {ordenBloqueada && (
                 <div className="mt-2 p-2.5 bg-red-100 rounded-lg text-red-700 text-xs font-medium">
                   ⚠️ La orden está vencida. Contacte al coordinador antes de registrar el ingreso.
@@ -341,7 +357,7 @@ export default function NuevoIngresoPage() {
             Cancelar
           </Link>
           <button type="submit"
-            disabled={guardando || !paciente || (!!ordenBloqueada && !esSinOrden)}
+            disabled={guardando || !paciente || sinOrdenRequerida || (!!ordenBloqueada && !esSinOrden)}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed">
             {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {guardando ? "Guardando..." : "Registrar Ingreso"}
