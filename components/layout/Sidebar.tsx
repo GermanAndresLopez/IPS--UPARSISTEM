@@ -17,7 +17,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard",               label: "Dashboard",      icon: <LayoutDashboard className="w-5 h-5" />, roles: ["ADMIN","COORDINADOR","OPERATIVO"] },
-   { href: "/dashboard/ingresos",      label: "Ingresos",       icon: <ClipboardList className="w-5 h-5" />,  roles: ["ADMIN","OPERATIVO"] },
+   { href: "/dashboard/ingresos",      label: "Ingresos",       icon: <ClipboardList className="w-5 h-5" />,  roles: ["ADMIN","COORDINADOR","OPERATIVO"] },
   { href: "/dashboard/ordenes",       label: "Órdenes",        icon: <FileText className="w-5 h-5" />,       roles: ["ADMIN","COORDINADOR"] },
   { href: "/dashboard/pacientes",     label: "Pacientes",      icon: <Users className="w-5 h-5" />,          roles: ["ADMIN","COORDINADOR","OPERATIVO"] },
   { href: "/dashboard/alertas",       label: "Alertas",        icon: <Bell className="w-5 h-5" />,           roles: ["ADMIN","COORDINADOR"], badge: 4 },
@@ -101,15 +101,24 @@ export function Sidebar({ userRol, userName }: SidebarProps) {
       {/* User */}
       <div className="p-4 border-t border-gray-100">
         <div className="flex items-center gap-3 px-3 py-2.5">
-          <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-            {initials}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-gray-900 truncate">{userName}</p>
-            <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-medium", getRolColor(userRol))}>
-              {getRolLabel(userRol)}
-            </span>
-          </div>
+          <Link
+            href="/dashboard/mi-perfil"
+            title="Editar mis datos y contraseña"
+            className={cn(
+              "flex items-center gap-3 flex-1 min-w-0 text-left rounded-xl transition px-1 py-1 -mx-1 -my-1",
+              pathname === "/dashboard/mi-perfil" ? "bg-indigo-50" : "hover:bg-gray-50"
+            )}
+          >
+            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-gray-900 truncate">{userName}</p>
+              <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-medium", getRolColor(userRol))}>
+                {getRolLabel(userRol)}
+              </span>
+            </div>
+          </Link>
           <button
             onClick={() => {
               localStorage.removeItem("terapia_user");

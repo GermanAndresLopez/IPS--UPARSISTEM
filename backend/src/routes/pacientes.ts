@@ -53,7 +53,7 @@ const PACIENTE_SELECT = `
     p.id,
     p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre,
     TRIM(CONCAT_WS(' ', p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre)) AS nombre_completo,
-    p.tipo_documento, p.documento_identidad,
+    p.tipo_documento, p.documento_identidad, p.activo,
     TO_CHAR(p.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
     p.sexo, p.telefono_1, p.telefono_2, p.correo,
     p.eps_id, e.nombre AS eps_nombre,
@@ -102,7 +102,7 @@ const PACIENTE_SELECT = `
 // GET /api/pacientes
 router.get("/", async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const r = await query(`${PACIENTE_SELECT} ORDER BY p.nombre_completo`);
+    const r = await query(`${PACIENTE_SELECT} ORDER BY p.primer_apellido, p.primer_nombre`);
     res.json(r.rows);
   } catch (err) {
     console.error("[pacientes/GET]", err);
@@ -128,6 +128,34 @@ router.get("/buscar", async (req: AuthRequest, res: Response): Promise<void> => 
   } catch (err) {
     console.error("[pacientes/buscar]", err);
     res.status(500).json({ error: "Error al buscar pacientes" });
+  }
+});
+
+// GET /api/pacientes/verificar-documento?documento=X&excluir_id=Y
+// Verifica si ya existe un paciente con ese número de documento (para validar en el formulario)
+router.get("/verificar-documento", async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const documento = String(req.query.documento ?? "").trim();
+    if (!documento) { res.json({ existe: false }); return; }
+
+    const params: unknown[] = [documento];
+    let sql = `
+      SELECT id, TRIM(CONCAT_WS(' ', primer_apellido, segundo_apellido, primer_nombre, segundo_nombre)) AS nombre_completo
+      FROM pacientes WHERE documento_identidad = $1`;
+    if (req.query.excluir_id) {
+      sql += ` AND id != $2`;
+      params.push(req.query.excluir_id);
+    }
+
+    const r = await query(sql, params);
+    if (r.rows[0]) {
+      res.json({ existe: true, paciente_id: r.rows[0]["id"], paciente_nombre: r.rows[0]["nombre_completo"] });
+    } else {
+      res.json({ existe: false });
+    }
+  } catch (err) {
+    console.error("[pacientes/verificar-documento]", err);
+    res.status(500).json({ error: "Error al verificar el documento" });
   }
 });
 
@@ -199,31 +227,47 @@ router.post(
 );
 
 // PUT /api/pacientes/:id
+const PUT_CAMPOS_MAYUSCULA = new Set([
+  "primer_apellido", "segundo_apellido", "primer_nombre", "segundo_nombre",
+]);
+const PUT_CAMPOS_OPCIONALES = new Set([
+  "segundo_apellido", "segundo_nombre", "telefono_2", "correo", "eps_id",
+]);
+const PUT_CAMPOS_PERMITIDOS = [
+  "primer_apellido", "segundo_apellido", "primer_nombre", "segundo_nombre",
+  "tipo_documento", "documento_identidad", "fecha_nacimiento", "sexo",
+  "telefono_1", "telefono_2", "correo", "eps_id", "tipo_paciente", "diagnostico_id", "novedad",
+];
+
 router.put(
   "/:id",
   requireRole("ADMIN", "COORDINADOR"),
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const {
-        primer_apellido, segundo_apellido, primer_nombre, segundo_nombre,
-        tipo_documento, documento_identidad, fecha_nacimiento, sexo,
-        telefono_1, telefono_2, correo, eps_id, tipo_paciente, diagnostico_id, novedad,
-      } = req.body;
+      // Update parcial: solo se modifican las columnas presentes en el body,
+      // así el panel de edición del perfil (que solo envía nombre/teléfonos/correo)
+      // no sobreescribe con NULL los demás campos obligatorios del paciente.
+      const sets: string[] = [];
+      const valores: unknown[] = [];
+      let i = 1;
+      for (const campo of PUT_CAMPOS_PERMITIDOS) {
+        if (!(campo in req.body)) continue;
+        let valor = req.body[campo];
+        if (PUT_CAMPOS_MAYUSCULA.has(campo)) valor = valor ? String(valor).toUpperCase() : null;
+        else if (PUT_CAMPOS_OPCIONALES.has(campo)) valor = valor || null;
+        sets.push(`${campo} = $${i++}`);
+        valores.push(valor);
+      }
 
+      if (sets.length === 0) {
+        res.status(400).json({ error: "No hay campos para actualizar" });
+        return;
+      }
+
+      valores.push(req.params.id);
       const r = await query(
-        `UPDATE pacientes SET
-          primer_apellido=$1, segundo_apellido=$2, primer_nombre=$3, segundo_nombre=$4,
-          tipo_documento=$5, documento_identidad=$6, fecha_nacimiento=$7, sexo=$8,
-          telefono_1=$9, telefono_2=$10, correo=$11, eps_id=$12, tipo_paciente=$13,
-          diagnostico_id=$14, novedad=$15
-         WHERE id=$16 RETURNING id`,
-        [
-          primer_apellido?.toUpperCase(), segundo_apellido?.toUpperCase() || null,
-          primer_nombre?.toUpperCase(), segundo_nombre?.toUpperCase() || null,
-          tipo_documento || "CC", documento_identidad,
-          fecha_nacimiento, sexo, telefono_1, telefono_2 || null, correo || null,
-          eps_id || null, tipo_paciente, diagnostico_id, novedad || "SIN_NOVEDAD", req.params.id,
-        ]
+        `UPDATE pacientes SET ${sets.join(", ")} WHERE id = $${i} RETURNING id`,
+        valores
       );
       if (!r.rows[0]) { res.status(404).json({ error: "Paciente no encontrado" }); return; }
 
@@ -235,9 +279,41 @@ router.put(
 
       const full = await query(`${PACIENTE_SELECT} WHERE p.id = $1`, [req.params.id]);
       res.json(full.rows[0]);
-    } catch (err) {
+    } catch (err: unknown) {
+      const e = err as { code?: string };
+      if (e.code === "23505") {
+        res.status(409).json({ error: "Ya existe un paciente con ese documento" });
+        return;
+      }
       console.error("[pacientes/PUT]", err);
       res.status(500).json({ error: "Error al actualizar paciente" });
+    }
+  }
+);
+
+// PATCH /api/pacientes/:id/toggle — Activar / desactivar (solo ADMIN)
+router.patch(
+  "/:id/toggle",
+  requireRole("ADMIN"),
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const r = await query(
+        "UPDATE pacientes SET activo = NOT activo WHERE id = $1 RETURNING activo",
+        [req.params.id]
+      );
+      if (!r.rows[0]) { res.status(404).json({ error: "Paciente no encontrado" }); return; }
+
+      const estado = r.rows[0]["activo"] ? "activado" : "desactivado";
+      await query(
+        `INSERT INTO auditoria (usuario_id, tipo_accion, modulo, registro_id, descripcion)
+         VALUES ($1,'EDITAR','PACIENTES',$2,$3)`,
+        [req.user!.id, req.params.id, `Paciente ID ${req.params.id} ${estado}`]
+      );
+
+      res.json({ activo: r.rows[0]["activo"] });
+    } catch (err) {
+      console.error("[pacientes/toggle]", err);
+      res.status(500).json({ error: "Error al cambiar estado del paciente" });
     }
   }
 );

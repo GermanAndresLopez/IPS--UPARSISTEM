@@ -59,14 +59,14 @@ const ORDEN_SELECT = `
       ELSE 'NORMAL'
     END AS estado,
     o.modalidad_id, m.nombre AS modalidad_nombre,
-    o.terapeuta_inicial_id, t.nombre_completo AS terapeuta_inicial_nombre,
+    o.terapeuta_inicial_id, COALESCE(t.nombre_completo, 'Sin especificar') AS terapeuta_inicial_nombre,
     o.activa, o.archivo_adjunto,
     u.nombre_completo AS registrada_por,
     TO_CHAR(o.fecha_registro, 'YYYY-MM-DD') AS fecha_registro,
     TRIM(CONCAT_WS(' ', p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre)) AS paciente_nombre
   FROM ordenes o
   JOIN modalidades m ON m.id = o.modalidad_id
-  JOIN terapeutas t ON t.id = o.terapeuta_inicial_id
+  LEFT JOIN terapeutas t ON t.id = o.terapeuta_inicial_id
   LEFT JOIN usuarios u ON u.id = o.registrada_por_id
   LEFT JOIN pacientes p ON p.id = o.paciente_id
 `;
@@ -117,7 +117,7 @@ router.post(
         sesiones_autorizadas, modalidad_id, terapeuta_inicial_id,
       } = req.body;
 
-      if (!paciente_id || !tipo_limite || !fecha_emision || !fecha_inicio || !modalidad_id || !terapeuta_inicial_id) {
+      if (!paciente_id || !tipo_limite || !fecha_emision || !fecha_inicio || !modalidad_id) {
         res.status(400).json({ error: "Faltan campos requeridos" });
         return;
       }
@@ -146,7 +146,7 @@ router.post(
           paciente_id, tipo_limite, fecha_emision, fecha_inicio,
           tipo_limite === "FECHA" ? (fecha_fin || null) : null,
           tipo_limite === "CANTIDAD_TERAPIAS" ? (sesiones_autorizadas || null) : null,
-          modalidad_id, terapeuta_inicial_id, archivo, req.user!.id,
+          modalidad_id, terapeuta_inicial_id || null, archivo, req.user!.id,
         ]
       );
       const newId = r.rows[0]["id"];
@@ -206,6 +206,18 @@ router.put(
             `INSERT INTO historial_ordenes (orden_id, tipo_cambio, valor_anterior, valor_nuevo, motivo, modificado_por_id)
              VALUES ($1,$2,$3,$4,$5,$6)`,
             [req.params.id, tipo_cambio, valorAnterior, String(nuevasCantidad), motivo, req.user!.id]
+          );
+        } else if (tipo_cambio === "AJUSTE_CONSUMIDAS") {
+          const valorAnterior = String(ord["sesiones_consumidas"] ?? "0");
+          const nuevasConsumidas = Number(ord["sesiones_consumidas"]) + Number(valor_nuevo);
+          await txQuery(
+            "UPDATE ordenes SET sesiones_consumidas=$1 WHERE id=$2",
+            [nuevasConsumidas, req.params.id]
+          );
+          await txQuery(
+            `INSERT INTO historial_ordenes (orden_id, tipo_cambio, valor_anterior, valor_nuevo, motivo, modificado_por_id)
+             VALUES ($1,$2,$3,$4,$5,$6)`,
+            [req.params.id, tipo_cambio, valorAnterior, String(nuevasConsumidas), motivo, req.user!.id]
           );
         } else if (tipo_cambio === "CIERRE") {
           await txQuery("UPDATE ordenes SET activa=false WHERE id=$1", [req.params.id]);

@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS pacientes (
   diagnostico_id       INTEGER       NOT NULL REFERENCES diagnosticos(id),
   novedad              VARCHAR(30)   NOT NULL DEFAULT 'SIN_NOVEDAD'
                        CHECK (novedad IN ('SIN_NOVEDAD','DE_ALTA','SUSPENDIDO','CAMBIO_CIUDAD','CAMBIO_DE_IPS','PARTICULAR')),
+  activo               BOOLEAN       NOT NULL DEFAULT true,
   fecha_registro       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   registrado_por_id    INTEGER       REFERENCES usuarios(id)
 );
@@ -93,7 +94,7 @@ CREATE TABLE IF NOT EXISTS ordenes (
   sesiones_autorizadas  INTEGER,
   sesiones_consumidas   INTEGER       NOT NULL DEFAULT 0,
   modalidad_id          INTEGER       NOT NULL REFERENCES modalidades(id),
-  terapeuta_inicial_id  INTEGER       NOT NULL REFERENCES terapeutas(id),
+  terapeuta_inicial_id  INTEGER       REFERENCES terapeutas(id),
   activa                BOOLEAN       NOT NULL DEFAULT true,
   archivo_adjunto       VARCHAR(500),
   registrada_por_id     INTEGER       REFERENCES usuarios(id),
@@ -104,7 +105,7 @@ CREATE TABLE IF NOT EXISTS ordenes (
 CREATE TABLE IF NOT EXISTS historial_ordenes (
   id                 SERIAL        PRIMARY KEY,
   orden_id           INTEGER       NOT NULL REFERENCES ordenes(id) ON DELETE CASCADE,
-  tipo_cambio        VARCHAR(30)   NOT NULL CHECK (tipo_cambio IN ('EXTENSION_FECHA','AMPLIACION_SESIONES','CIERRE')),
+  tipo_cambio        VARCHAR(30)   NOT NULL CHECK (tipo_cambio IN ('EXTENSION_FECHA','AMPLIACION_SESIONES','CIERRE','AJUSTE_CONSUMIDAS')),
   valor_anterior     TEXT          NOT NULL,
   valor_nuevo        TEXT          NOT NULL,
   motivo             TEXT          NOT NULL,
@@ -168,6 +169,13 @@ UPDATE pacientes SET
                        THEN split_part(nombre_completo, ' ', 4) ELSE NULL END, '')
 WHERE primer_apellido IS NULL AND nombre_completo IS NOT NULL;
 ALTER TABLE pacientes DROP COLUMN IF EXISTS nombre_completo;
+ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true;
+-- Permitir órdenes sin terapeuta inicial especificado
+ALTER TABLE ordenes ALTER COLUMN terapeuta_inicial_id DROP NOT NULL;
+-- Ampliar el CHECK de historial_ordenes para incluir AJUSTE_CONSUMIDAS
+ALTER TABLE historial_ordenes DROP CONSTRAINT IF EXISTS historial_ordenes_tipo_cambio_check;
+ALTER TABLE historial_ordenes ADD CONSTRAINT historial_ordenes_tipo_cambio_check
+  CHECK (tipo_cambio IN ('EXTENSION_FECHA','AMPLIACION_SESIONES','CIERRE','AJUSTE_CONSUMIDAS'));
 
 -- Índices para mejorar rendimiento
 CREATE INDEX IF NOT EXISTS idx_pacientes_documento ON pacientes(documento_identidad);

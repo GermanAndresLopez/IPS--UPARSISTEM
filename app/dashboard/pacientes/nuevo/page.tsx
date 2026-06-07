@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, User, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, User, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { pacientesApi, epsApi, diagnosticosApi } from "@/lib/api";
 import type { EPS, Diagnostico } from "@/lib/tipos";
 
@@ -21,6 +21,31 @@ export default function NuevoPacientePage() {
   const [cargando,     setCargando]     = useState(true);
   const [guardando,    setGuardando]    = useState(false);
   const [error,        setError]        = useState("");
+
+  const [docEstado,  setDocEstado]  = useState<"idle" | "verificando" | "duplicado" | "ok">("idle");
+  const [docMensaje, setDocMensaje] = useState("");
+
+  // Verifica en tiempo real que el número de documento no esté ya registrado
+  useEffect(() => {
+    const doc = form.documento_identidad.trim();
+    if (doc.length < 6) { setDocEstado("idle"); setDocMensaje(""); return; }
+
+    setDocEstado("verificando");
+    const t = setTimeout(() => {
+      pacientesApi.verificarDocumento(doc)
+        .then(r => {
+          if (r.existe) {
+            setDocEstado("duplicado");
+            setDocMensaje(`Ya existe un paciente registrado con este documento: ${r.paciente_nombre}`);
+          } else {
+            setDocEstado("ok");
+            setDocMensaje("");
+          }
+        })
+        .catch(() => { setDocEstado("idle"); setDocMensaje(""); });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [form.documento_identidad]);
 
   useEffect(() => {
     Promise.all([
@@ -47,6 +72,10 @@ export default function NuevoPacientePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (docEstado === "duplicado") {
+      setError("No se puede registrar: ya existe un paciente con este número de documento.");
+      return;
+    }
     setGuardando(true);
     try {
       await pacientesApi.create({
@@ -140,8 +169,27 @@ export default function NuevoPacientePage() {
                 </select>
                 <input type="text" name="documento_identidad" value={form.documento_identidad ?? ""}
                   onChange={handleChange} required placeholder="Número de documento"
-                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  className={`flex-1 px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 ${
+                    docEstado === "duplicado"
+                      ? "border-red-300 focus:ring-red-400"
+                      : "border-gray-200 focus:ring-indigo-500"
+                  }`} />
               </div>
+              {docEstado === "verificando" && (
+                <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verificando documento...
+                </p>
+              )}
+              {docEstado === "duplicado" && (
+                <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {docMensaje}
+                </p>
+              )}
+              {docEstado === "ok" && (
+                <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Documento disponible
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Fecha de nacimiento</label>
@@ -238,7 +286,7 @@ export default function NuevoPacientePage() {
             className="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
             Cancelar
           </Link>
-          <button type="submit" disabled={guardando}
+          <button type="submit" disabled={guardando || docEstado === "duplicado" || docEstado === "verificando"}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-70">
             {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {guardando ? "Guardando..." : "Guardar Paciente"}

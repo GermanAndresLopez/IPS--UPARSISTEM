@@ -51,6 +51,7 @@ interface Alerta {
 
 export default function DashboardPage() {
   const [userName, setUserName] = useState("Usuario");
+  const [rol, setRol] = useState("");
   const [kpi, setKpi] = useState<KpiData | null>(null);
   const [graficas, setGraficas] = useState<GraficaData | null>(null);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
@@ -61,7 +62,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const stored = localStorage.getItem("terapia_user");
-    if (stored) setUserName(JSON.parse(stored).nombre.split(" ")[0]);
+    if (stored) {
+      const user = JSON.parse(stored);
+      setUserName(user.nombre.split(" ")[0]);
+      setRol(user.rol ?? "");
+    }
 
     Promise.all([
       dashboardApi.kpi() as Promise<KpiData>,
@@ -100,7 +105,13 @@ export default function DashboardPage() {
 
   if (!kpi || !graficas) return null;
 
-  const alertasCriticas = alertas.filter(a => a.prioridad === "ALTA");
+  const ORDEN_PRIORIDAD: Record<string, number> = { ALTA: 0, MEDIA: 1, BAJA: 2 };
+  const alertasOrdenadas = [...alertas].sort((a, b) => ORDEN_PRIORIDAD[a.prioridad] - ORDEN_PRIORIDAD[b.prioridad]);
+  const ESTILO_PRIORIDAD: Record<string, { caja: string; punto: string; texto: string; chip: string; etiqueta: string }> = {
+    ALTA:  { caja: "bg-red-50 border-red-100",       punto: "bg-red-500",     texto: "text-red-700",     chip: "bg-red-100 text-red-700",       etiqueta: "ALTA" },
+    MEDIA: { caja: "bg-amber-50 border-amber-100",   punto: "bg-amber-500",   texto: "text-amber-700",   chip: "bg-amber-100 text-amber-700",   etiqueta: "MEDIA" },
+    BAJA:  { caja: "bg-gray-50 border-gray-100",     punto: "bg-gray-400",    texto: "text-gray-600",    chip: "bg-gray-200 text-gray-600",     etiqueta: "BAJA" },
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -124,6 +135,8 @@ export default function DashboardPage() {
         <KpiCard icon={<AlertTriangle className="w-6 h-6 text-red-600" />}  label="Órdenes en alerta"  value={kpi.ordenes_en_alerta}   sub={`${kpi.ordenes_vencidas} vencidas`}            color="bg-red-50" />
       </div>
 
+      {rol !== "OPERATIVO" && (
+      <>
       {/* Stats adicionales */}
       <div className="grid grid-cols-3 gap-4">
         {[
@@ -221,29 +234,34 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      </>
+      )}
 
-      {/* Alertas críticas */}
-      {alertasCriticas.length > 0 && (
+      {/* Alertas activas */}
+      {alertasOrdenadas.length > 0 && (
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-red-500" />
-            Alertas Críticas
+            Alertas Activas
           </h3>
           <div className="space-y-3">
-            {alertasCriticas.map(alerta => (
-              <div key={alerta.id}
-                className="flex items-start gap-4 p-4 bg-red-50 border border-red-100 rounded-xl">
-                <div className="w-2 h-2 rounded-full bg-red-500 mt-2 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-900">{alerta.paciente_nombre}</p>
-                  <p className="text-sm text-red-700 mt-0.5">{alerta.descripcion}</p>
-                  {alerta.ultimo_ingreso && (
-                    <p className="text-xs text-gray-400 mt-1">Último ingreso: {formatFecha(alerta.ultimo_ingreso)}</p>
-                  )}
+            {alertasOrdenadas.map(alerta => {
+              const estilo = ESTILO_PRIORIDAD[alerta.prioridad] ?? ESTILO_PRIORIDAD["BAJA"];
+              return (
+                <div key={alerta.id}
+                  className={`flex items-start gap-4 p-4 border rounded-xl ${estilo.caja}`}>
+                  <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${estilo.punto}`} />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900">{alerta.paciente_nombre}</p>
+                    <p className={`text-sm mt-0.5 ${estilo.texto}`}>{alerta.descripcion}</p>
+                    {alerta.ultimo_ingreso && (
+                      <p className="text-xs text-gray-400 mt-1">Último ingreso: {formatFecha(alerta.ultimo_ingreso)}</p>
+                    )}
+                  </div>
+                  <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${estilo.chip}`}>{estilo.etiqueta}</span>
                 </div>
-                <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">CRÍTICA</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

@@ -17,7 +17,7 @@ router.get("/", async (_req: AuthRequest, res: Response): Promise<void> => {
     const proximasVencer = await query(`
       SELECT
         o.id AS orden_id, o.paciente_id,
-        p.nombre_completo AS paciente_nombre,
+        TRIM(CONCAT_WS(' ', p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre)) AS paciente_nombre,
         (o.fecha_fin - CURRENT_DATE)::int AS dias_restantes,
         TO_CHAR(o.fecha_fin, 'DD-Mon-YYYY') AS fecha_fin_fmt,
         (SELECT MAX(fecha) FROM ingresos i WHERE i.paciente_id = o.paciente_id) AS ultimo_ingreso
@@ -49,7 +49,7 @@ router.get("/", async (_req: AuthRequest, res: Response): Promise<void> => {
     const pocasSesiones = await query(`
       SELECT
         o.id AS orden_id, o.paciente_id,
-        p.nombre_completo AS paciente_nombre,
+        TRIM(CONCAT_WS(' ', p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre)) AS paciente_nombre,
         (o.sesiones_autorizadas - o.sesiones_consumidas) AS sesiones_restantes,
         o.sesiones_autorizadas,
         (SELECT MAX(fecha) FROM ingresos i WHERE i.paciente_id = o.paciente_id) AS ultimo_ingreso
@@ -80,7 +80,7 @@ router.get("/", async (_req: AuthRequest, res: Response): Promise<void> => {
     const ausentes = await query(`
       SELECT
         p.id AS paciente_id,
-        p.nombre_completo AS paciente_nombre,
+        TRIM(CONCAT_WS(' ', p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre)) AS paciente_nombre,
         o.id AS orden_id,
         MAX(i.fecha) AS ultimo_ingreso,
         (CURRENT_DATE - MAX(i.fecha))::int AS dias_sin_asistir
@@ -92,7 +92,7 @@ router.get("/", async (_req: AuthRequest, res: Response): Promise<void> => {
         OR
         (o.tipo_limite = 'CANTIDAD_TERAPIAS' AND (o.sesiones_autorizadas - o.sesiones_consumidas) > 0)
       )
-      GROUP BY p.id, p.nombre_completo, o.id
+      GROUP BY p.id, p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre, o.id
       HAVING MAX(i.fecha) IS NULL OR (CURRENT_DATE - MAX(i.fecha)) > 30
       ORDER BY dias_sin_asistir DESC NULLS LAST
     `);

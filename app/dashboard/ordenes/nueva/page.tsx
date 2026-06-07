@@ -110,12 +110,13 @@ export default function NuevaOrdenPage() {
     try {
       const fd = new FormData();
       fd.append("paciente_id",          form.paciente_id);
-      fd.append("tipo_limite",          form.tipo_limite);
+      fd.append("tipo_limite",          form.tipo_limite === "VALORACION" ? "FECHA" : form.tipo_limite);
       fd.append("fecha_emision",        form.fecha_emision);
       fd.append("fecha_inicio",         form.fecha_inicio);
       fd.append("modalidad_id",         form.modalidad_id || String(modalidades[0]?.id ?? ""));
       fd.append("terapeuta_inicial_id", form.terapeuta_inicial_id);
       if (form.tipo_limite === "FECHA")              fd.append("fecha_fin",            form.fecha_fin);
+      if (form.tipo_limite === "VALORACION")         fd.append("fecha_fin",            form.fecha_inicio);
       if (form.tipo_limite === "CANTIDAD_TERAPIAS")  fd.append("sesiones_autorizadas", form.sesiones_autorizadas);
       if (archivo) fd.append("adjunto", archivo);
 
@@ -218,8 +219,8 @@ export default function NuevaOrdenPage() {
             {/* Tipo de orden */}
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipo de orden</label>
-              <div className="grid grid-cols-2 gap-3">
-                {["FECHA","CANTIDAD_TERAPIAS"].map(tipo => (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {["FECHA","CANTIDAD_TERAPIAS","VALORACION"].map(tipo => (
                   <label key={tipo} className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition ${
                     form.tipo_limite === tipo ? "border-indigo-500 bg-indigo-50" : "border-gray-200 hover:border-gray-300"
                   }`}>
@@ -227,10 +228,12 @@ export default function NuevaOrdenPage() {
                       checked={form.tipo_limite === tipo} onChange={handleChange} className="text-indigo-600" />
                     <div>
                       <p className="text-sm font-semibold text-gray-900">
-                        {tipo === "FECHA" ? "Por fecha de vencimiento" : "Por cantidad de terapias"}
+                        {tipo === "FECHA" ? "Por fecha de vencimiento" : tipo === "CANTIDAD_TERAPIAS" ? "Por cantidad de terapias" : "Orden de valoración"}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {tipo === "FECHA" ? "La orden tiene fecha de inicio y fin" : "La orden autoriza N sesiones sin fecha fija"}
+                        {tipo === "FECHA" ? "La orden tiene fecha de inicio y fin"
+                          : tipo === "CANTIDAD_TERAPIAS" ? "La orden autoriza N sesiones sin fecha fija"
+                          : "Orden válida para un solo día (la fecha de fin es igual a la de inicio)"}
                       </p>
                     </div>
                   </label>
@@ -264,12 +267,18 @@ export default function NuevaOrdenPage() {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
             )}
+            {form.tipo_limite === "VALORACION" && (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-sm text-indigo-700">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                Esta orden será válida únicamente para la fecha de inicio seleccionada.
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Terapeuta inicial</label>
-              <select name="terapeuta_inicial_id" value={form.terapeuta_inicial_id} onChange={handleChange} required
+              <select name="terapeuta_inicial_id" value={form.terapeuta_inicial_id} onChange={handleChange}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="">Seleccione terapeuta...</option>
+                <option value="">Sin especificar</option>
                 {terapeutas.map(t => (
                   <option key={t.id} value={t.id}>{t.nombre_completo} — {t.tipo_cargo}</option>
                 ))}

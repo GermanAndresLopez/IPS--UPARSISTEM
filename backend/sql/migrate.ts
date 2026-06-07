@@ -78,7 +78,24 @@ async function run() {
       console.log("   (nombre_completo ya no existe, nada que migrar)");
     }
 
-    // 5. Índices
+    // 5. Campo activo en pacientes
+    await client.query(`ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true`);
+    console.log("✅ pacientes.activo OK");
+
+    // 6b. Permitir terapeuta_inicial_id nulo en ordenes (orden sin terapeuta especificado)
+    await client.query(`ALTER TABLE ordenes ALTER COLUMN terapeuta_inicial_id DROP NOT NULL`)
+      .catch(() => console.log("   (terapeuta_inicial_id ya era nullable)"));
+    console.log("✅ ordenes.terapeuta_inicial_id nullable OK");
+
+    // 6. Ampliar CHECK de historial_ordenes para AJUSTE_CONSUMIDAS
+    await client.query(`ALTER TABLE historial_ordenes DROP CONSTRAINT IF EXISTS historial_ordenes_tipo_cambio_check`);
+    await client.query(`
+      ALTER TABLE historial_ordenes ADD CONSTRAINT historial_ordenes_tipo_cambio_check
+        CHECK (tipo_cambio IN ('EXTENSION_FECHA','AMPLIACION_SESIONES','CIERRE','AJUSTE_CONSUMIDAS'))
+    `);
+    console.log("✅ historial_ordenes CHECK ampliado OK");
+
+    // 7. Índices
     await client.query(`CREATE INDEX IF NOT EXISTS idx_ordenes_activa  ON ordenes(activa)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_auditoria_fecha ON auditoria(fecha_hora)`);
     console.log("✅ Índices OK");

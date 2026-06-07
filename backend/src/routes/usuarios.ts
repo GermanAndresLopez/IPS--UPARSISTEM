@@ -8,7 +8,64 @@ import { query } from "../db";
 import { authenticate, requireRole, AuthRequest } from "../middleware/auth";
 
 const router = Router();
-router.use(authenticate, requireRole("ADMIN"));
+router.use(authenticate);
+
+// PUT /api/usuarios/me — autoservicio: el usuario autenticado edita sus propios datos y/o contraseña
+router.put("/me", async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { nombre_completo, correo, contrasena_actual, contrasena_nueva } = req.body;
+    if (!nombre_completo || !correo) {
+      res.status(400).json({ error: "Nombre y correo son requeridos" });
+      return;
+    }
+
+    if (contrasena_nueva) {
+      if (!contrasena_actual) {
+        res.status(400).json({ error: "Ingresa tu contraseña actual para poder cambiarla" });
+        return;
+      }
+      const actual = await query("SELECT contrasena_hash FROM usuarios WHERE id = $1", [req.user!.id]);
+      if (!actual.rows[0]) { res.status(404).json({ error: "Usuario no encontrado" }); return; }
+      const coincide = await bcrypt.compare(contrasena_actual, actual.rows[0]["contrasena_hash"] as string);
+      if (!coincide) {
+        res.status(401).json({ error: "La contraseña actual no es correcta" });
+        return;
+      }
+      const hash = await bcrypt.hash(contrasena_nueva, 10);
+      const r = await query(
+        `UPDATE usuarios SET nombre_completo=$1, correo=$2, contrasena_hash=$3
+         WHERE id=$4
+         RETURNING id, nombre_completo, correo, rol, activo`,
+        [nombre_completo, correo.toLowerCase().trim(), hash, req.user!.id]
+      );
+      res.json(r.rows[0]);
+    } else {
+      const r = await query(
+        `UPDATE usuarios SET nombre_completo=$1, correo=$2
+         WHERE id=$3
+         RETURNING id, nombre_completo, correo, rol, activo`,
+        [nombre_completo, correo.toLowerCase().trim(), req.user!.id]
+      );
+      res.json(r.rows[0]);
+    }
+
+    await query(
+      `INSERT INTO auditoria (usuario_id, tipo_accion, modulo, registro_id, descripcion)
+       VALUES ($1,'EDITAR','USUARIOS',$2,$3)`,
+      [req.user!.id, req.user!.id, "Actualizó sus datos personales"]
+    );
+  } catch (err: unknown) {
+    const e = err as { code?: string };
+    if (e.code === "23505") {
+      res.status(409).json({ error: "Ya existe un usuario con ese correo" });
+      return;
+    }
+    console.error("[usuarios/me PUT]", err);
+    res.status(500).json({ error: "Error al actualizar tus datos" });
+  }
+});
+
+router.use(requireRole("ADMIN"));
 
 // GET /api/usuarios
 router.get("/", async (_req, res: Response): Promise<void> => {

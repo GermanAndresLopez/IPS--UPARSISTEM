@@ -107,6 +107,7 @@ export interface Paciente {
   codigo_cie10: string;
   diagnostico_nombre: string;
   novedad: NovedadPaciente;
+  activo: boolean;
   categoria: CategoriaPaciente;
   fecha_registro: string;
   registrado_por: string;
@@ -129,7 +130,7 @@ export interface Orden {
   estado: EstadoOrden;
   modalidad_id: number;
   modalidad_nombre: string;
-  terapeuta_inicial_id: number;
+  terapeuta_inicial_id?: number;
   terapeuta_inicial_nombre: string;
   activa: boolean;
   registrada_por: string;
@@ -139,7 +140,7 @@ export interface Orden {
 export interface HistorialOrden {
   id: number;
   orden_id: number;
-  tipo_cambio: "EXTENSION_FECHA" | "AMPLIACION_SESIONES" | "CIERRE";
+  tipo_cambio: "EXTENSION_FECHA" | "AMPLIACION_SESIONES" | "CIERRE" | "AJUSTE_CONSUMIDAS";
   valor_anterior: string;
   valor_nuevo: string;
   motivo: string;

@@ -35,10 +35,11 @@ async function apiFetch<T = unknown>(
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
 
-  if (res.status === 401) {
-    // Token expirado — limpiar sesión y redirigir al login
+  if (res.status === 401 && token) {
+    // Había un token y el servidor lo rechazó — sesión expirada o inválida
     if (typeof window !== "undefined") {
       localStorage.removeItem("session");
+      localStorage.removeItem("terapia_user");
       window.location.href = "/";
     }
     throw new Error("Sesión expirada");
@@ -72,10 +73,19 @@ export const pacientesApi = {
   getAll: () => apiFetch<unknown[]>("/pacientes"),
   getById: (id: number) => apiFetch<unknown>(`/pacientes/${id}`),
   buscar: (q: string) => apiFetch<unknown[]>(`/pacientes/buscar?q=${encodeURIComponent(q)}`),
+  verificarDocumento: (documento: string, excluirId?: number) => {
+    const qs = new URLSearchParams({ documento });
+    if (excluirId) qs.set("excluir_id", String(excluirId));
+    return apiFetch<{ existe: boolean; paciente_id?: number; paciente_nombre?: string }>(
+      `/pacientes/verificar-documento?${qs.toString()}`
+    );
+  },
   create: (data: Record<string, unknown>) =>
     apiFetch<unknown>("/pacientes", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: Record<string, unknown>) =>
     apiFetch<unknown>(`/pacientes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  toggle: (id: number) =>
+    apiFetch<{ activo: boolean }>(`/pacientes/${id}/toggle`, { method: "PATCH" }),
 };
 
 // ─── ÓRDENES ──────────────────────────────────────────────────────────────────
@@ -169,4 +179,8 @@ export const usuariosApi = {
     apiFetch<unknown>(`/usuarios/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   toggle: (id: number) =>
     apiFetch<unknown>(`/usuarios/${id}/toggle`, { method: "PATCH" }),
+  actualizarPerfil: (data: Record<string, unknown>) =>
+    apiFetch<{ id: number; nombre_completo: string; correo: string; rol: string; activo: boolean }>(
+      "/usuarios/me", { method: "PUT", body: JSON.stringify(data) }
+    ),
 };
