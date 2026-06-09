@@ -271,13 +271,15 @@ router.put(
       );
       if (!r.rows[0]) { res.status(404).json({ error: "Paciente no encontrado" }); return; }
 
+      const full = await query(`${PACIENTE_SELECT} WHERE p.id = $1`, [req.params.id]);
+      const nombre = full.rows[0]?.nombre_completo ?? `ID ${req.params.id}`;
+
       await query(
         `INSERT INTO auditoria (usuario_id, tipo_accion, modulo, registro_id, descripcion)
          VALUES ($1,'EDITAR','PACIENTES',$2,$3)`,
-        [req.user!.id, req.params.id, `Editó paciente ID ${req.params.id}`]
+        [req.user!.id, req.params.id, `Editó paciente ${nombre} (ID ${req.params.id})`]
       );
 
-      const full = await query(`${PACIENTE_SELECT} WHERE p.id = $1`, [req.params.id]);
       res.json(full.rows[0]);
     } catch (err: unknown) {
       const e = err as { code?: string };
@@ -304,10 +306,15 @@ router.patch(
       if (!r.rows[0]) { res.status(404).json({ error: "Paciente no encontrado" }); return; }
 
       const estado = r.rows[0]["activo"] ? "activado" : "desactivado";
+      const np = await query(
+        `SELECT TRIM(CONCAT_WS(' ', primer_apellido, segundo_apellido, primer_nombre, segundo_nombre)) AS nombre FROM pacientes WHERE id = $1`,
+        [req.params.id]
+      );
+      const nombre = np.rows[0]?.nombre ?? `ID ${req.params.id}`;
       await query(
         `INSERT INTO auditoria (usuario_id, tipo_accion, modulo, registro_id, descripcion)
          VALUES ($1,'EDITAR','PACIENTES',$2,$3)`,
-        [req.user!.id, req.params.id, `Paciente ID ${req.params.id} ${estado}`]
+        [req.user!.id, req.params.id, `Paciente ${nombre} (ID ${req.params.id}) ${estado}`]
       );
 
       res.json({ activo: r.rows[0]["activo"] });

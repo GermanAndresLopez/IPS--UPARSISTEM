@@ -14,6 +14,7 @@ import configuracionRouter from "./routes/configuracion";
 import alertasRouter from "./routes/alertas";
 import dashboardRouter from "./routes/dashboard";
 import auditoriaRouter from "./routes/auditoria";
+import reportesRouter from "./routes/reportes";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -45,6 +46,7 @@ app.use("/api/configuracion",  configuracionRouter);
 app.use("/api/alertas",        alertasRouter);
 app.use("/api/dashboard",      dashboardRouter);
 app.use("/api/auditoria",      auditoriaRouter);
+app.use("/api/reportes",      reportesRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });

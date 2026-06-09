@@ -179,7 +179,7 @@ async function run() {
     console.log("   admin@terapia.com  → ADMIN");
     console.log("   laura@terapia.com  → COORDINADOR");
     console.log("   maria@terapia.com  → OPERATIVO");
-    console.log("\n   🔑 Contraseña para todos: terapia2026\n");
+    console.log("\n    Contraseña para todos: terapia2026\n");
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("❌ Error durante el seed:", err);

@@ -165,6 +165,24 @@ export const tiposIngresoApi = {
   getAll: () => apiFetch<unknown[]>("/configuracion/tipos-ingreso"),
 };
 
+// ─── REPORTES ────────────────────────────────────────────────────────────────
+export interface PacienteReporte {
+  nombre_completo: string; edad: number; eps: string; cie10: string; telefono: string;
+}
+export interface ResumenReporte {
+  total: number; masculino: number; femenino: number;
+  por_diagnostico: { name: string; value: number }[];
+  por_edad:        { rango: string; total: number }[];
+  por_eps:         { name: string; value: number }[];
+  asistencias:     { dia: string; total: number }[];
+  pacientes_nuevos:   PacienteReporte[];
+  pacientes_ausentes: PacienteReporte[];
+}
+export const reportesApi = {
+  resumen: (periodo: string) =>
+    apiFetch<ResumenReporte>(`/reportes/resumen?periodo=${periodo}`),
+};
+
 // ─── AUDITORÍA ────────────────────────────────────────────────────────────────
 export const auditoriaApi = {
   getAll: () => apiFetch<unknown[]>("/auditoria"),

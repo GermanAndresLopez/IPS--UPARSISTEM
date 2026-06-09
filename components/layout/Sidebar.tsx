@@ -21,7 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard/ordenes",       label: "Órdenes",        icon: <FileText className="w-5 h-5" />,       roles: ["ADMIN","COORDINADOR"] },
   { href: "/dashboard/pacientes",     label: "Pacientes",      icon: <Users className="w-5 h-5" />,          roles: ["ADMIN","COORDINADOR","OPERATIVO"] },
   { href: "/dashboard/alertas",       label: "Alertas",        icon: <Bell className="w-5 h-5" />,           roles: ["ADMIN","COORDINADOR"], badge: 4 },
-  { href: "/dashboard/reportes",      label: "Reportes",       icon: <BarChart2 className="w-5 h-5" />,      roles: ["ADMIN","COORDINADOR"] },
+  { href: "/dashboard/reportes",      label: "Reportes",       icon: <BarChart2 className="w-5 h-5" />,      roles: ["ADMIN"] },
   { href: "/dashboard/auditoria",     label: "Auditoría",      icon: <Shield className="w-5 h-5" />,         roles: ["ADMIN"] },
   { href: "/dashboard/configuracion", label: "Configuración",  icon: <Settings className="w-5 h-5" />,       roles: ["ADMIN"] },
 ];
