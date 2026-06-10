@@ -60,8 +60,15 @@ export default function ReportesPage() {
         "Por Edad");
 
       xlsxUtils.book_append_sheet(wb,
-        xlsxUtils.json_to_sheet(data.asistencias.map(r => ({ FECHA: r.dia, PACIENTES: r.total }))),
-        "Asistencia");
+        xlsxUtils.json_to_sheet(data.asistencia_detalle.map(r => ({
+          FECHA: r.fecha,
+          "TIPO DOC.": r.tipo_documento,
+          "CÉDULA": r.documento_identidad,
+          APELLIDOS: r.apellidos,
+          NOMBRES: r.nombres,
+          EPS: r.eps,
+          "TELÉFONO": r.telefono,
+        }))), "Asistencia");
 
       if (data.pacientes_nuevos.length)
         xlsxUtils.book_append_sheet(wb,

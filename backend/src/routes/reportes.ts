@@ -22,7 +22,7 @@ router.get("/resumen", async (req: AuthRequest, res: Response): Promise<void> =>
   const fr = cond(periodo, "p.fecha_registro");
 
   try {
-    const [totalQ, generoQ, diagQ, edadQ, epsQ, asistQ, nuevosQ, ausentesQ] = await Promise.all([
+    const [totalQ, generoQ, diagQ, edadQ, epsQ, asistQ, asistDetalleQ, nuevosQ, ausentesQ] = await Promise.all([
 
       query(`SELECT COUNT(DISTINCT i.paciente_id) AS total FROM ingresos i WHERE ${fi}`),
 
@@ -77,6 +77,22 @@ router.get("/resumen", async (req: AuthRequest, res: Response): Promise<void> =>
 
       query(`
         SELECT
+          TO_CHAR(i.fecha, 'YYYY-MM-DD') AS fecha,
+          p.tipo_documento,
+          p.documento_identidad,
+          TRIM(CONCAT_WS(' ', p.primer_apellido, p.segundo_apellido)) AS apellidos,
+          TRIM(CONCAT_WS(' ', p.primer_nombre, p.segundo_nombre)) AS nombres,
+          e.nombre AS eps,
+          COALESCE(p.telefono_1, '') AS telefono
+        FROM ingresos i
+        JOIN pacientes p ON p.id = i.paciente_id
+        LEFT JOIN eps e ON e.id = p.eps_id
+        WHERE ${cond(periodo, "i.fecha")}
+        ORDER BY i.fecha, p.primer_apellido, p.primer_nombre
+      `),
+
+      query(`
+        SELECT
           ${NOMBRE_SQL} AS nombre_completo,
           ${EDAD_SQL}   AS edad,
           e.nombre AS eps,
@@ -124,6 +140,15 @@ router.get("/resumen", async (req: AuthRequest, res: Response): Promise<void> =>
       por_edad:        edadQ.rows.map(r  => ({ rango: String(r["rango"]), total: Number(r["total"]) })),
       por_eps:         epsQ.rows.map(r   => ({ name: String(r["name"]), value: Number(r["value"]) })),
       asistencias:     asistQ.rows.map(r => ({ dia: String(r["dia"]), total: Number(r["total"]) })),
+      asistencia_detalle: asistDetalleQ.rows.map(r => ({
+        fecha:               String(r["fecha"]),
+        tipo_documento:      String(r["tipo_documento"] ?? ""),
+        documento_identidad: String(r["documento_identidad"] ?? ""),
+        apellidos:           String(r["apellidos"] ?? ""),
+        nombres:             String(r["nombres"] ?? ""),
+        eps:                 String(r["eps"] ?? ""),
+        telefono:            String(r["telefono"] ?? ""),
+      })),
       pacientes_nuevos:   nuevosQ.rows,
       pacientes_ausentes: ausentesQ.rows,
     });
