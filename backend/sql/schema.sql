@@ -156,18 +156,23 @@ ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS segundo_apellido VARCHAR(100);
 ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS primer_nombre VARCHAR(100);
 ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS segundo_nombre VARCHAR(100);
 -- Poblar los campos de nombre desde nombre_completo existente (formato: APELLIDO1 APELLIDO2 NOMBRE1 NOMBRE2)
-UPDATE pacientes SET
-  primer_apellido  = COALESCE(split_part(nombre_completo, ' ', 1), ''),
-  segundo_apellido = NULLIF(CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
-                       THEN split_part(nombre_completo, ' ', 2) ELSE NULL END, ''),
-  primer_nombre    = CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
-                       THEN split_part(nombre_completo, ' ', 3)
-                       WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) = 3
-                       THEN split_part(nombre_completo, ' ', 2)
-                       ELSE split_part(nombre_completo, ' ', 2) END,
-  segundo_nombre   = NULLIF(CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
-                       THEN split_part(nombre_completo, ' ', 4) ELSE NULL END, '')
-WHERE primer_apellido IS NULL AND nombre_completo IS NOT NULL;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pacientes' AND column_name='nombre_completo') THEN
+    UPDATE pacientes SET
+      primer_apellido  = COALESCE(split_part(nombre_completo, ' ', 1), ''),
+      segundo_apellido = NULLIF(CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
+                           THEN split_part(nombre_completo, ' ', 2) ELSE NULL END, ''),
+      primer_nombre    = CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
+                           THEN split_part(nombre_completo, ' ', 3)
+                           WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) = 3
+                           THEN split_part(nombre_completo, ' ', 2)
+                           ELSE split_part(nombre_completo, ' ', 2) END,
+      segundo_nombre   = NULLIF(CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
+                           THEN split_part(nombre_completo, ' ', 4) ELSE NULL END, '')
+    WHERE primer_apellido IS NULL AND nombre_completo IS NOT NULL;
+  END IF;
+END $$;
 ALTER TABLE pacientes DROP COLUMN IF EXISTS nombre_completo;
 ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true;
 -- Permitir órdenes sin terapeuta inicial especificado

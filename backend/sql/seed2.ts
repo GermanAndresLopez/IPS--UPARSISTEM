@@ -156,35 +156,35 @@ async function run() {
 
     // 6. Terapeutas (28 registros)
     await client.query(`
-      INSERT INTO terapeutas (id, nombre_completo) VALUES
-        (1, 'ADALBA CAMARGO'),
-        (2, 'ADRIANA SANJUAN'),
-        (3, 'ANDREA ORTIZ'),
-        (4, 'CARLOS MORENO'),
-        (5, 'DAYANA DAZA'),
-        (6, 'DAYANA HERNANDEZ'),
-        (7, 'DUNNIA CHAATELI'),
-        (8, 'ELMIS PINTO'),
-        (9, 'ENEDYS DURAN'),
-        (10, 'EUGENIA GONZALEZ'),
-        (11, 'INDI ESTRADA'),
-        (12, 'ISABELLA LOZANO'),
-        (13, 'KAREN DIAZ'),
-        (14, 'KATTY CHARIS'),
-        (15, 'LINOSKA AVILA'),
-        (16, 'LISBETH CABALLERO'),
-        (17, 'MARELVIS VERGARA'),
-        (18, 'MARTHA MATIZ'),
-        (19, 'NATALIE VEGA'),
-        (20, 'NESTOR BLANCO'),
-        (21, 'SANDRA GONZALEZ'),
-        (22, 'SARA ALARCON'),
-        (23, 'VIVIANA RAMIREZ'),
-        (24, 'WENDY GUERRA'),
-        (25, 'YADIRYS NAVARRO'),
-        (26, 'YAIRYS RANGEL'),
-        (27, 'YESENIA MOLINA'),
-        (28, 'YULIETH AYALA')
+      INSERT INTO terapeutas (id, nombre_completo, tipo_cargo, fecha_inicio_cargo) VALUES
+        (1, 'ADALBA CAMARGO', 'TERAPEUTA', '2020-01-01'),
+        (2, 'ADRIANA SANJUAN', 'TERAPEUTA', '2020-01-01'),
+        (3, 'ANDREA ORTIZ', 'TERAPEUTA', '2020-01-01'),
+        (4, 'CARLOS MORENO', 'TERAPEUTA', '2020-01-01'),
+        (5, 'DAYANA DAZA', 'TERAPEUTA', '2020-01-01'),
+        (6, 'DAYANA HERNANDEZ', 'TERAPEUTA', '2020-01-01'),
+        (7, 'DUNNIA CHAATELI', 'TERAPEUTA', '2020-01-01'),
+        (8, 'ELMIS PINTO', 'TERAPEUTA', '2020-01-01'),
+        (9, 'ENEDYS DURAN', 'TERAPEUTA', '2020-01-01'),
+        (10, 'EUGENIA GONZALEZ', 'TERAPEUTA', '2020-01-01'),
+        (11, 'INDI ESTRADA', 'TERAPEUTA', '2020-01-01'),
+        (12, 'ISABELLA LOZANO', 'TERAPEUTA', '2020-01-01'),
+        (13, 'KAREN DIAZ', 'TERAPEUTA', '2020-01-01'),
+        (14, 'KATTY CHARIS', 'TERAPEUTA', '2020-01-01'),
+        (15, 'LINOSKA AVILA', 'TERAPEUTA', '2020-01-01'),
+        (16, 'LISBETH CABALLERO', 'TERAPEUTA', '2020-01-01'),
+        (17, 'MARELVIS VERGARA', 'TERAPEUTA', '2020-01-01'),
+        (18, 'MARTHA MATIZ', 'TERAPEUTA', '2020-01-01'),
+        (19, 'NATALIE VEGA', 'TERAPEUTA', '2020-01-01'),
+        (20, 'NESTOR BLANCO', 'TERAPEUTA', '2020-01-01'),
+        (21, 'SANDRA GONZALEZ', 'TERAPEUTA', '2020-01-01'),
+        (22, 'SARA ALARCON', 'TERAPEUTA', '2020-01-01'),
+        (23, 'VIVIANA RAMIREZ', 'TERAPEUTA', '2020-01-01'),
+        (24, 'WENDY GUERRA', 'TERAPEUTA', '2020-01-01'),
+        (25, 'YADIRYS NAVARRO', 'TERAPEUTA', '2020-01-01'),
+        (26, 'YAIRYS RANGEL', 'TERAPEUTA', '2020-01-01'),
+        (27, 'YESENIA MOLINA', 'TERAPEUTA', '2020-01-01'),
+        (28, 'YULIETH AYALA', 'TERAPEUTA', '2020-01-01')
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query("SELECT setval('terapeutas_id_seq', 50)");
@@ -204,8 +204,28 @@ async function run() {
     console.log("✅ Usuarios (contraseña: terapia2026)");
 
     // 8. Pacientes (878 registros)
+    await client.query(`DROP TABLE IF EXISTS _tmp_pacientes`);
     await client.query(`
-      INSERT INTO pacientes
+      CREATE TEMP TABLE _tmp_pacientes (
+        id INTEGER PRIMARY KEY,
+        nombre_completo VARCHAR(300) NOT NULL,
+        documento_identidad VARCHAR(50),
+        fecha_nacimiento DATE,
+        sexo VARCHAR(10),
+        telefono_1 VARCHAR(50),
+        telefono_2 VARCHAR(50),
+        eps_id INTEGER,
+        diagnostico_id INTEGER,
+        fecha_registro TIMESTAMPTZ,
+        fecha_inicio_orden DATE,
+        fecha_fin_orden DATE,
+        estado_orden VARCHAR(30),
+        observacion TEXT,
+        registrado_por_id INTEGER
+      )
+    `);
+    await client.query(`
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -264,7 +284,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -323,7 +343,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -382,7 +402,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -441,7 +461,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -500,7 +520,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -559,7 +579,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -618,7 +638,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -677,7 +697,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -736,7 +756,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -761,7 +781,7 @@ async function run() {
         (467, 'MANJARREZ CAMARGO ROBERTH ALEJANDRO', '1067627761', '2015-01-30', 'MASCULINO', '3175508781', NULL, 1, NULL, '2026-02-19', '2026-02-19', '2026-02-19', 'INACTIVO', NULL, 3),
         (468, 'MANOTAS MIRANDA LUIS ANDRES', '1122422098', '2023-07-22', 'MASCULINO', '3012482383', '3007493061', 8, 14, '2025-11-10', NULL, NULL, 'INACTIVO', NULL, 3),
         (469, 'MANZANO BRITO MIGUEL ANGEL', '1065840435', '2016-05-05', 'MASCULINO', '3135317087', NULL, 6, 23, '2025-08-06', '2026-05-01', '2026-08-30', 'SUPER_VIGENTE', NULL, 3),
-        (470, 'MANZUR NIEVES DAVID SANTIAGO', '1067640571', '2020-01-03', 'MASCULINO', '3168771269', NULL, 6, 58, '2023-09-05', '0103/2026', '2026-05-30', 'VENCIDA', NULL, 3),
+        (470, 'MANZUR NIEVES DAVID SANTIAGO', '1067640571', '2020-01-03', 'MASCULINO', '3168771269', NULL, 6, 58, '2023-09-05', '2026-01-03', '2026-05-30', 'VENCIDA', NULL, 3),
         (471, 'MARENCO ANDRADE VICTORIA MARIA', '1048092402', '2022-01-28', 'FEMENINO', '3007584151', '3175026157', 8, 12, '2026-05-04', '2026-05-04', '2026-05-30', 'VENCIDA', NULL, 3),
         (472, 'MARQUEZ BOHORQUEZ SAMUEL ENRIQUE', '1066289617', '2011-06-22', 'MASCULINO', '3014137516', '3217078118', 6, 23, '2022-12-10', '2025-08-01', '2025-11-30', 'INACTIVO', NULL, 3),
         (473, 'MARRIAGA GUZMAN RODRIGO', '1066893594', '2018-01-04', 'MASCULINO', '3150463097', NULL, 5, 60, '2026-05-22', '2026-05-22', '2026-05-22', 'VENCIDA', NULL, 3),
@@ -795,7 +815,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -854,7 +874,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -913,7 +933,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -972,7 +992,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -1031,7 +1051,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -1090,7 +1110,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -1149,7 +1169,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -1208,7 +1228,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO pacientes
+      INSERT INTO _tmp_pacientes
         (id, nombre_completo, documento_identidad, fecha_nacimiento, sexo,
          telefono_1, telefono_2, eps_id, diagnostico_id,
          fecha_registro, fecha_inicio_orden, fecha_fin_orden, estado_orden,
@@ -1245,11 +1265,81 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query("SELECT setval('pacientes_id_seq', 1000)");
+
+    // Transformar desde tabla temporal al schema real (split de nombre_completo)
+    await client.query(`
+      INSERT INTO pacientes (
+        id, primer_apellido, segundo_apellido, primer_nombre, segundo_nombre,
+        documento_identidad, fecha_nacimiento, sexo, telefono_1, telefono_2,
+        eps_id, diagnostico_id, tipo_paciente, fecha_registro, registrado_por_id
+      )
+      SELECT
+        id,
+        NULLIF(TRIM(split_part(TRIM(nombre_completo), ' ', 1)), ''),
+        NULLIF(CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
+          THEN TRIM(split_part(TRIM(nombre_completo), ' ', 2)) ELSE NULL END, ''),
+        NULLIF(CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
+          THEN TRIM(split_part(TRIM(nombre_completo), ' ', 3))
+          ELSE TRIM(split_part(TRIM(nombre_completo), ' ', 2)) END, ''),
+        NULLIF(CASE WHEN array_length(string_to_array(TRIM(nombre_completo), ' '), 1) >= 4
+          THEN TRIM(split_part(TRIM(nombre_completo), ' ', 4)) ELSE NULL END, ''),
+        documento_identidad,
+        fecha_nacimiento,
+        sexo,
+        COALESCE(telefono_1, 'N/A'),
+        telefono_2,
+        eps_id,
+        diagnostico_id,
+        CASE WHEN eps_id IS NOT NULL THEN 'ORDEN' ELSE 'PARTICULAR' END,
+        COALESCE(fecha_registro, NOW()),
+        registrado_por_id
+      FROM _tmp_pacientes
+      WHERE diagnostico_id IS NOT NULL
+      ON CONFLICT DO NOTHING
+    `);
+    // Generar órdenes desde los datos embebidos en pacientes
+    await client.query(`DELETE FROM ordenes`);
+    await client.query(`
+      INSERT INTO ordenes (
+        paciente_id, tipo_limite, fecha_emision, fecha_inicio, fecha_fin,
+        modalidad_id, activa, registrada_por_id, fecha_registro
+      )
+      SELECT
+        t.id,
+        'FECHA',
+        COALESCE(t.fecha_inicio_orden, t.fecha_registro::DATE),
+        COALESCE(t.fecha_inicio_orden, t.fecha_registro::DATE),
+        t.fecha_fin_orden,
+        1,
+        CASE WHEN t.fecha_fin_orden IS NULL OR (t.fecha_fin_orden - CURRENT_DATE) > -90 THEN true ELSE false END,
+        t.registrado_por_id,
+        COALESCE(t.fecha_registro, NOW())
+      FROM _tmp_pacientes t
+      WHERE t.diagnostico_id IS NOT NULL
+        AND t.id IN (SELECT id FROM pacientes)
+        AND t.fecha_inicio_orden IS NOT NULL
+    `);
+    await client.query(`SELECT setval('ordenes_id_seq', 2000)`);
+    console.log("✅ Órdenes generadas desde datos de pacientes");
+
+    await client.query(`DROP TABLE _tmp_pacientes`);
     console.log("✅ Pacientes (878 registros)");
 
     // 9. Ingresos — TODOS (9135 registros)
+    await client.query(`DROP TABLE IF EXISTS _tmp_ingresos`);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      CREATE TEMP TABLE _tmp_ingresos (
+        id INTEGER PRIMARY KEY,
+        fecha DATE,
+        hora TIME,
+        paciente_id INTEGER,
+        tipo_ingreso_id INTEGER,
+        registrado_por_id INTEGER,
+        fecha_registro TIMESTAMPTZ
+      )
+    `);
+    await client.query(`
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (1, '2026-05-29', '18:00', 24, 1, 3, '2026-05-29T18:00:00'),
         (2, '2026-05-29', '17:30', 346, 1, 3, '2026-05-29T17:30:00'),
@@ -1354,7 +1444,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (101, '2026-05-28', '18:00', 695, 1, 3, '2026-05-28T18:00:00'),
         (102, '2026-05-28', '18:00', 115, 1, 3, '2026-05-28T18:00:00'),
@@ -1459,7 +1549,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (201, '2026-05-27', '17:30', 192, 1, 3, '2026-05-27T17:30:00'),
         (202, '2026-05-27', '17:30', 278, 1, 3, '2026-05-27T17:30:00'),
@@ -1564,7 +1654,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (301, '2026-05-27', '10:00', 730, 1, 3, '2026-05-27T10:00:00'),
         (302, '2026-05-27', '09:30', 568, 1, 3, '2026-05-27T09:30:00'),
@@ -1669,7 +1759,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (401, '2026-05-26', '11:30', 312, 1, 3, '2026-05-26T11:30:00'),
         (402, '2026-05-26', '11:30', 385, 1, 3, '2026-05-26T11:30:00'),
@@ -1774,7 +1864,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (501, '2026-05-25', '14:00', 755, 1, 3, '2026-05-25T14:00:00'),
         (502, '2026-05-25', '14:00', 469, 1, 3, '2026-05-25T14:00:00'),
@@ -1879,7 +1969,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (601, '2026-05-22', '14:30', 406, 1, 3, '2026-05-22T14:30:00'),
         (602, '2026-05-22', '14:30', 861, 1, 3, '2026-05-22T14:30:00'),
@@ -1984,7 +2074,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (701, '2026-05-21', '15:00', 257, 1, 3, '2026-05-21T15:00:00'),
         (702, '2026-05-21', '15:00', 818, 1, 3, '2026-05-21T15:00:00'),
@@ -2089,7 +2179,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (801, '2026-05-20', '16:00', 457, 1, 3, '2026-05-20T16:00:00'),
         (802, '2026-05-20', '16:00', 665, 1, 3, '2026-05-20T16:00:00'),
@@ -2194,7 +2284,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (901, '2026-05-20', '07:00', 200, 1, 3, '2026-05-20T07:00:00'),
         (902, '2026-05-20', '07:00', 539, 1, 3, '2026-05-20T07:00:00'),
@@ -2299,7 +2389,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (1001, '2026-05-19', '07:00', 306, 1, 3, '2026-05-19T07:00:00'),
         (1002, '2026-05-19', '07:00', 52, 1, 3, '2026-05-19T07:00:00'),
@@ -2404,7 +2494,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (1101, '2026-05-14', '18:00', 203, 1, 3, '2026-05-14T18:00:00'),
         (1102, '2026-05-14', '18:00', 115, 1, 3, '2026-05-14T18:00:00'),
@@ -2509,7 +2599,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (1201, '2026-05-13', '17:00', 579, 1, 3, '2026-05-13T17:00:00'),
         (1202, '2026-05-13', '17:00', 3, 1, 3, '2026-05-13T17:00:00'),
@@ -2614,7 +2704,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (1301, '2026-05-13', '10:00', 730, 1, 3, '2026-05-13T10:00:00'),
         (1302, '2026-05-13', '10:00', 167, 1, 3, '2026-05-13T10:00:00'),
@@ -2719,7 +2809,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (1401, '2026-05-12', '13:00', 705, 1, 3, '2026-05-12T13:00:00'),
         (1402, '2026-05-12', '12:30', 222, 1, 3, '2026-05-12T12:30:00'),
@@ -2824,7 +2914,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (1501, '2026-05-11', '14:00', 48, 1, 3, '2026-05-11T14:00:00'),
         (1502, '2026-05-11', '13:30', 25, 1, 3, '2026-05-11T13:30:00'),
@@ -2929,7 +3019,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (1601, '2026-05-08', '13:00', 418, 1, 3, '2026-05-08T13:00:00'),
         (1602, '2026-05-08', '13:00', 765, 3, 3, '2026-05-08T13:00:00'),
@@ -3034,7 +3124,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (1701, '2026-05-07', '13:30', 434, 1, 3, '2026-05-07T13:30:00'),
         (1702, '2026-05-07', '13:30', 582, 1, 3, '2026-05-07T13:30:00'),
@@ -3139,7 +3229,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (1801, '2026-05-06', '14:00', 134, 1, 3, '2026-05-06T14:00:00'),
         (1802, '2026-05-06', '14:00', 135, 1, 3, '2026-05-06T14:00:00'),
@@ -3244,7 +3334,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (1901, '2026-05-05', '15:30', 363, 1, 3, '2026-05-05T15:30:00'),
         (1902, '2026-05-05', '15:30', 294, 1, 3, '2026-05-05T15:30:00'),
@@ -3349,7 +3439,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (2001, '2026-05-04', '16:00', 729, 1, 3, '2026-05-04T16:00:00'),
         (2002, '2026-05-04', '16:00', 21, 1, 3, '2026-05-04T16:00:00'),
@@ -3454,7 +3544,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (2101, '2026-04-29', '10:00', 503, 1, 3, '2026-04-29T10:00:00'),
         (2102, '2026-04-29', '09:30', 735, 1, 3, '2026-04-29T09:30:00'),
@@ -3559,7 +3649,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (2201, '2026-04-27', '13:30', 356, 1, 3, '2026-04-27T13:30:00'),
         (2202, '2026-04-27', '13:30', 72, 1, 3, '2026-04-27T13:30:00'),
@@ -3664,7 +3754,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (2301, '2026-04-24', '13:00', 798, 1, 3, '2026-04-24T13:00:00'),
         (2302, '2026-04-24', '12:30', 574, 1, 3, '2026-04-24T12:30:00'),
@@ -3769,7 +3859,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (2401, '2026-04-23', '13:00', 711, 1, 3, '2026-04-23T13:00:00'),
         (2402, '2026-04-23', '13:00', 418, 1, 3, '2026-04-23T13:00:00'),
@@ -3874,7 +3964,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (2501, '2026-04-22', '14:00', 205, 1, 3, '2026-04-22T14:00:00'),
         (2502, '2026-04-22', '14:00', 615, 1, 3, '2026-04-22T14:00:00'),
@@ -3979,7 +4069,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (2601, '2026-04-21', '17:00', 319, 1, 3, '2026-04-21T17:00:00'),
         (2602, '2026-04-21', '17:00', 437, 1, 3, '2026-04-21T17:00:00'),
@@ -4084,7 +4174,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (2701, '2026-04-20', '17:00', 540, 1, 3, '2026-04-20T17:00:00'),
         (2702, '2026-04-20', '17:00', 360, 1, 3, '2026-04-20T17:00:00'),
@@ -4189,7 +4279,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (2801, '2026-04-20', '10:00', 10, 1, 3, '2026-04-20T10:00:00'),
         (2802, '2026-04-20', '10:00', 503, 1, 3, '2026-04-20T10:00:00'),
@@ -4294,7 +4384,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (2901, '2026-04-17', '12:00', 870, 1, 3, '2026-04-17T12:00:00'),
         (2902, '2026-04-17', '12:00', 831, 1, 3, '2026-04-17T12:00:00'),
@@ -4399,7 +4489,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (3001, '2026-04-16', '14:00', 371, 1, 3, '2026-04-16T14:00:00'),
         (3002, '2026-04-16', '14:00', 787, 1, 3, '2026-04-16T14:00:00'),
@@ -4504,7 +4594,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (3101, '2026-04-15', '15:30', 363, 1, 3, '2026-04-15T15:30:00'),
         (3102, '2026-04-15', '15:30', 450, 1, 3, '2026-04-15T15:30:00'),
@@ -4609,7 +4699,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (3201, '2026-04-15', '07:00', 426, 1, 3, '2026-04-15T07:00:00'),
         (3202, '2026-04-15', '07:00', 483, 1, 3, '2026-04-15T07:00:00'),
@@ -4714,7 +4804,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (3301, '2026-04-14', '07:00', 529, 1, 3, '2026-04-14T07:00:00'),
         (3302, '2026-04-14', '07:00', 306, 1, 3, '2026-04-14T07:00:00'),
@@ -4819,7 +4909,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (3401, '2026-04-13', '13:00', 705, 1, 3, '2026-04-13T13:00:00'),
         (3402, '2026-04-13', '12:30', 241, 1, 3, '2026-04-13T12:30:00'),
@@ -4924,7 +5014,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (3501, '2026-04-10', '12:00', 870, 1, 3, '2026-04-10T12:00:00'),
         (3502, '2026-04-10', '12:00', 809, 1, 3, '2026-04-10T12:00:00'),
@@ -5029,7 +5119,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (3601, '2026-04-09', '12:00', 827, 1, 3, '2026-04-09T12:00:00'),
         (3602, '2026-04-09', '11:30', 650, 1, 3, '2026-04-09T11:30:00'),
@@ -5134,7 +5224,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (3701, '2026-04-08', '14:00', 699, 1, 3, '2026-04-08T14:00:00'),
         (3702, '2026-04-08', '14:00', 768, 1, 3, '2026-04-08T14:00:00'),
@@ -5239,7 +5329,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (3801, '2026-04-07', '15:30', 179, 1, 3, '2026-04-07T15:30:00'),
         (3802, '2026-04-07', '15:30', 180, 1, 3, '2026-04-07T15:30:00'),
@@ -5344,7 +5434,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (3901, '2026-04-06', '16:00', 461, 1, 3, '2026-04-06T16:00:00'),
         (3902, '2026-04-06', '16:00', 524, 1, 3, '2026-04-06T16:00:00'),
@@ -5449,7 +5539,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (4001, '2026-03-27', '16:00', 727, 1, 3, '2026-03-27T16:00:00'),
         (4002, '2026-03-27', '16:00', 728, 1, 3, '2026-03-27T16:00:00'),
@@ -5554,7 +5644,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (4101, '2026-03-26', '16:30', 572, 1, 3, '2026-03-26T16:30:00'),
         (4102, '2026-03-26', '16:00', 728, 1, 3, '2026-03-26T16:00:00'),
@@ -5659,7 +5749,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (4201, '2026-03-25', '16:00', 271, 1, 3, '2026-03-25T16:00:00'),
         (4202, '2026-03-25', '16:00', 728, 1, 3, '2026-03-25T16:00:00'),
@@ -5764,7 +5854,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (4301, '2026-03-24', '16:30', 264, 1, 3, '2026-03-24T16:30:00'),
         (4302, '2026-03-24', '16:30', 641, 1, 3, '2026-03-24T16:30:00'),
@@ -5869,7 +5959,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (4401, '2026-03-20', '16:00', 727, 1, 3, '2026-03-20T16:00:00'),
         (4402, '2026-03-20', '16:00', 869, 1, 3, '2026-03-20T16:00:00'),
@@ -5974,7 +6064,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (4501, '2026-03-19', '15:30', 143, 6, 3, '2026-03-19T15:30:00'),
         (4502, '2026-03-19', '15:30', 179, 1, 3, '2026-03-19T15:30:00'),
@@ -6079,7 +6169,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (4601, '2026-03-18', '16:30', 248, 1, 3, '2026-03-18T16:30:00'),
         (4602, '2026-03-18', '16:00', 21, 1, 3, '2026-03-18T16:00:00'),
@@ -6184,7 +6274,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (4701, '2026-03-17', '17:30', 277, 1, 3, '2026-03-17T17:30:00'),
         (4702, '2026-03-17', '17:30', 669, 1, 3, '2026-03-17T17:30:00'),
@@ -6289,7 +6379,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (4801, '2026-03-16', '17:30', 130, 1, 3, '2026-03-16T17:30:00'),
         (4802, '2026-03-16', '17:30', 404, 1, 3, '2026-03-16T17:30:00'),
@@ -6394,7 +6484,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (4901, '2026-03-16', '07:30', 662, 1, 3, '2026-03-16T07:30:00'),
         (4902, '2026-03-16', '07:30', 571, 1, 3, '2026-03-16T07:30:00'),
@@ -6499,7 +6589,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (5001, '2026-03-13', '07:30', 548, 1, 3, '2026-03-13T07:30:00'),
         (5002, '2026-03-13', '07:30', 571, 1, 3, '2026-03-13T07:30:00'),
@@ -6604,7 +6694,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (5101, '2026-03-11', '17:30', 120, 1, 3, '2026-03-11T17:30:00'),
         (5102, '2026-03-11', '17:30', 676, 1, 3, '2026-03-11T17:30:00'),
@@ -6709,7 +6799,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (5201, '2026-03-11', '08:30', 268, 1, 3, '2026-03-11T08:30:00'),
         (5202, '2026-03-11', '08:30', 448, 1, 3, '2026-03-11T08:30:00'),
@@ -6814,7 +6904,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (5301, '2026-03-10', '10:00', 467, 2, 3, '2026-03-10T10:00:00'),
         (5302, '2026-03-10', '10:00', 790, 1, 3, '2026-03-10T10:00:00'),
@@ -6919,7 +7009,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (5401, '2026-03-09', '13:00', 90, 1, 3, '2026-03-09T13:00:00'),
         (5402, '2026-03-09', '13:00', 155, 3, 3, '2026-03-09T13:00:00'),
@@ -7024,7 +7114,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (5501, '2026-03-06', '13:00', 722, 1, 3, '2026-03-06T13:00:00'),
         (5502, '2026-03-06', '13:00', 798, 1, 3, '2026-03-06T13:00:00'),
@@ -7129,7 +7219,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (5601, '2026-03-05', '13:00', 460, 1, 3, '2026-03-05T13:00:00'),
         (5602, '2026-03-05', '12:30', 397, 1, 3, '2026-03-05T12:30:00'),
@@ -7234,7 +7324,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (5701, '2026-03-04', '13:00', 798, 1, 3, '2026-03-04T13:00:00'),
         (5702, '2026-03-04', '13:00', 223, 1, 3, '2026-03-04T13:00:00'),
@@ -7339,7 +7429,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (5801, '2026-03-03', '13:00', 578, 1, 3, '2026-03-03T13:00:00'),
         (5802, '2026-03-03', '13:00', 93, 1, 3, '2026-03-03T13:00:00'),
@@ -7444,7 +7534,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (5901, '2026-03-02', '14:00', 210, 1, 3, '2026-03-02T14:00:00'),
         (5902, '2026-03-02', '14:00', 512, 1, 3, '2026-03-02T14:00:00'),
@@ -7549,7 +7639,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (6001, '2026-02-27', '14:00', 699, 1, 3, '2026-02-27T14:00:00'),
         (6002, '2026-02-27', '13:30', 825, 1, 3, '2026-02-27T13:30:00'),
@@ -7654,7 +7744,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (6101, '2026-02-26', '12:00', 458, 3, 3, '2026-02-26T12:00:00'),
         (6102, '2026-02-26', '12:00', 516, 1, 3, '2026-02-26T12:00:00'),
@@ -7759,7 +7849,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (6201, '2026-02-25', '14:00', 210, 1, 3, '2026-02-25T14:00:00'),
         (6202, '2026-02-25', '13:30', 825, 1, 3, '2026-02-25T13:30:00'),
@@ -7864,7 +7954,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (6301, '2026-02-24', '14:00', 560, 1, 3, '2026-02-24T14:00:00'),
         (6302, '2026-02-24', '14:00', 210, 1, 3, '2026-02-24T14:00:00'),
@@ -7969,7 +8059,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (6401, '2026-02-23', '15:00', 429, 1, 3, '2026-02-23T15:00:00'),
         (6402, '2026-02-23', '15:00', 763, 1, 3, '2026-02-23T15:00:00'),
@@ -8074,7 +8164,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (6501, '2026-02-20', '16:00', 416, 1, 3, '2026-02-20T16:00:00'),
         (6502, '2026-02-20', '16:00', 728, 1, 3, '2026-02-20T16:00:00'),
@@ -8179,7 +8269,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (6601, '2026-02-19', '16:00', 869, 1, 3, '2026-02-19T16:00:00'),
         (6602, '2026-02-19', '16:00', 816, 1, 3, '2026-02-19T16:00:00'),
@@ -8284,7 +8374,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (6701, '2026-02-18', '16:00', 316, 1, 3, '2026-02-18T16:00:00'),
         (6702, '2026-02-18', '16:00', 591, 1, 3, '2026-02-18T16:00:00'),
@@ -8389,7 +8479,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (6801, '2026-02-17', '17:30', 627, 1, 3, '2026-02-17T17:30:00'),
         (6802, '2026-02-17', '17:30', 204, 1, 3, '2026-02-17T17:30:00'),
@@ -8494,7 +8584,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (6901, '2026-02-16', '17:00', 272, 1, 3, '2026-02-16T17:00:00'),
         (6902, '2026-02-16', '17:00', 360, 1, 3, '2026-02-16T17:00:00'),
@@ -8599,7 +8689,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (7001, '2026-02-16', '08:30', 539, 1, 3, '2026-02-16T08:30:00'),
         (7002, '2026-02-16', '08:00', 614, 4, 3, '2026-02-16T08:00:00'),
@@ -8704,7 +8794,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (7101, '2026-02-13', '09:00', 772, 1, 3, '2026-02-13T09:00:00'),
         (7102, '2026-02-13', '08:30', 448, 1, 3, '2026-02-13T08:30:00'),
@@ -8809,7 +8899,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (7201, '2026-02-12', '07:30', 786, 1, 3, '2026-02-12T07:30:00'),
         (7202, '2026-02-12', '07:00', 740, 1, 3, '2026-02-12T07:00:00'),
@@ -8914,7 +9004,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (7301, '2026-02-11', '10:30', 75, 1, 3, '2026-02-11T10:30:00'),
         (7302, '2026-02-11', '10:30', 776, 1, 3, '2026-02-11T10:30:00'),
@@ -9019,7 +9109,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (7401, '2026-02-10', '13:00', 93, 1, 3, '2026-02-10T13:00:00'),
         (7402, '2026-02-10', '13:00', 460, 1, 3, '2026-02-10T13:00:00'),
@@ -9124,7 +9214,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (7501, '2026-02-09', '14:00', 543, 1, 3, '2026-02-09T14:00:00'),
         (7502, '2026-02-09', '14:00', 72, 1, 3, '2026-02-09T14:00:00'),
@@ -9229,7 +9319,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (7601, '2026-02-06', '14:00', 322, 1, 3, '2026-02-06T14:00:00'),
         (7602, '2026-02-06', '14:00', 685, 1, 3, '2026-02-06T14:00:00'),
@@ -9334,7 +9424,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (7701, '2026-02-05', '13:00', 660, 2, 3, '2026-02-05T13:00:00'),
         (7702, '2026-02-05', '13:00', 578, 1, 3, '2026-02-05T13:00:00'),
@@ -9439,7 +9529,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (7801, '2026-02-04', '14:00', 615, 1, 3, '2026-02-04T14:00:00'),
         (7802, '2026-02-04', '14:00', 685, 1, 3, '2026-02-04T14:00:00'),
@@ -9544,7 +9634,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (7901, '2026-02-03', '11:00', 789, 1, 3, '2026-02-03T11:00:00'),
         (7902, '2026-02-03', '10:00', 75, 1, 3, '2026-02-03T10:00:00'),
@@ -9649,7 +9739,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (8001, '2026-02-02', '07:00', 200, 1, 3, '2026-02-02T07:00:00'),
         (8002, '2026-02-02', '07:00', 640, 1, 3, '2026-02-02T07:00:00'),
@@ -9754,7 +9844,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (8101, '2026-01-29', '14:00', 273, 1, 3, '2026-01-29T14:00:00'),
         (8102, '2026-01-29', '10:30', 516, 1, 3, '2026-01-29T10:30:00'),
@@ -9859,7 +9949,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (8201, '2026-01-27', '16:30', 43, 1, 3, '2026-01-27T16:30:00'),
         (8202, '2026-01-27', '16:30', 641, 1, 3, '2026-01-27T16:30:00'),
@@ -9964,7 +10054,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (8301, '2026-01-26', '15:00', 665, 1, 3, '2026-01-26T15:00:00'),
         (8302, '2026-01-26', '14:30', 580, 1, 3, '2026-01-26T14:30:00'),
@@ -10069,7 +10159,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (8401, '2026-01-23', '09:30', 755, 1, 3, '2026-01-23T09:30:00'),
         (8402, '2026-01-23', '09:00', 418, 1, 3, '2026-01-23T09:00:00'),
@@ -10174,7 +10264,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (8501, '2026-01-21', '16:00', 591, 1, 3, '2026-01-21T16:00:00'),
         (8502, '2026-01-21', '16:00', 382, 1, 3, '2026-01-21T16:00:00'),
@@ -10279,7 +10369,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (8601, '2026-01-20', '14:00', 371, 1, 3, '2026-01-20T14:00:00'),
         (8602, '2026-01-20', '14:00', 273, 1, 3, '2026-01-20T14:00:00'),
@@ -10384,7 +10474,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (8701, '2026-01-19', '09:00', 730, 1, 3, '2026-01-19T09:00:00'),
         (8702, '2026-01-19', '09:00', 418, 1, 3, '2026-01-19T09:00:00'),
@@ -10489,7 +10579,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (8801, '2026-01-15', '10:00', 516, 1, 3, '2026-01-15T10:00:00'),
         (8802, '2026-01-15', '10:00', 321, 1, 3, '2026-01-15T10:00:00'),
@@ -10594,7 +10684,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (8901, '2026-01-13', '16:30', 753, 1, 3, '2026-01-13T16:30:00'),
         (8902, '2026-01-13', '16:30', 667, 1, 3, '2026-01-13T16:30:00'),
@@ -10699,7 +10789,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (9001, '2026-01-08', '15:00', 818, 1, 3, '2026-01-08T15:00:00'),
         (9002, '2026-01-08', '15:00', 355, 1, 3, '2026-01-08T15:00:00'),
@@ -10804,7 +10894,7 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query(`
-      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      INSERT INTO _tmp_ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
       VALUES
         (9101, '2026-01-06', '09:00', 93, 1, 3, '2026-01-06T09:00:00'),
         (9102, '2026-01-06', '09:00', 735, 1, 3, '2026-01-06T09:00:00'),
@@ -10844,6 +10934,16 @@ async function run() {
       ON CONFLICT (id) DO NOTHING
     `);
     await client.query("SELECT setval('ingresos_id_seq', 10000)");
+
+    await client.query(`
+      INSERT INTO ingresos (id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro)
+      SELECT id, fecha, hora, paciente_id, tipo_ingreso_id, registrado_por_id, fecha_registro
+      FROM _tmp_ingresos
+      WHERE paciente_id IN (SELECT id FROM pacientes)
+        AND tipo_ingreso_id IN (SELECT id FROM tipos_ingreso)
+      ON CONFLICT DO NOTHING
+    `);
+    await client.query(`DROP TABLE _tmp_ingresos`);
     console.log("✅ Ingresos (9135 registros)");
 
     // 10. Auditoría inicial

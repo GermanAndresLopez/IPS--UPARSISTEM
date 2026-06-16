@@ -1,13 +1,14 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Search, Clock, Users, CheckCircle2, Loader2, AlertTriangle } from "lucide-react";
+import { Plus, Search, Clock, Users, CheckCircle2, Loader2, AlertTriangle, ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
 import { ingresosApi, pacientesApi } from "@/lib/api";
 import { getEstadoConfig } from "@/lib/calculos";
-import { formatFecha, formatHora } from "@/lib/utils";
+import { formatHora } from "@/lib/utils";
 import type { Ingreso, Paciente } from "@/lib/tipos";
 
 const HOY = new Date().toISOString().split("T")[0];
+const POR_PAGINA = 20;
 
 export default function IngresosPage() {
   const [ingresos, setIngresos]     = useState<Ingreso[]>([]);
@@ -15,6 +16,8 @@ export default function IngresosPage() {
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState("");
   const [busqueda, setBusqueda]     = useState("");
+  const [verTodo, setVerTodo]       = useState(false);
+  const [pagina, setPagina]         = useState(1);
 
   const cargarDatos = useCallback(async () => {
     setLoading(true);
@@ -26,7 +29,6 @@ export default function IngresosPage() {
       ]);
       setIngresos(ingresosData);
 
-      // Pacientes con orden activa y vigente (NUEVO/ACTIVO/AUSENTE)
       const p = pacientesData
         .filter(p =>
           p.orden_activa &&
@@ -47,8 +49,16 @@ export default function IngresosPage() {
   const ingresosDeHoy      = ingresos.filter(i => i.fecha === HOY);
   const ingresosAnteriores = ingresos.filter(i => i.fecha !== HOY);
 
-  const filtrarNombre = (lista: Ingreso[]) =>
-    lista.filter(i => i.paciente_nombre.toLowerCase().includes(busqueda.toLowerCase()));
+  const historialFiltrado = ingresosAnteriores.filter(i =>
+    i.paciente_nombre.toLowerCase().includes(busqueda.toLowerCase())
+  );
+
+  // Resetear página al cambiar búsqueda o modo
+  useEffect(() => { setPagina(1); }, [busqueda, verTodo]);
+
+  const totalPaginas  = Math.ceil(historialFiltrado.length / POR_PAGINA);
+  const historialPag  = historialFiltrado.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+  const historialVista = verTodo ? historialPag : [];
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
@@ -84,6 +94,8 @@ export default function IngresosPage() {
         </div>
         {loading ? (
           <div className="flex justify-center py-6"><Loader2 className="w-6 h-6 animate-spin text-indigo-300" /></div>
+        ) : proximos.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center">No hay pacientes con orden activa vigente.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {proximos.map(p => {
@@ -128,7 +140,7 @@ export default function IngresosPage() {
             </span>
           </div>
           <div className="space-y-2">
-            {filtrarNombre(ingresosDeHoy).map(i => <IngresoCard key={i.id} ingreso={i} esNuevo />)}
+            {ingresosDeHoy.map(i => <IngresoCard key={i.id} ingreso={i} esNuevo />)}
           </div>
         </div>
       )}
@@ -136,26 +148,76 @@ export default function IngresosPage() {
       {/* Historial */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-sm text-gray-500">Historial</h3>
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-              placeholder="Buscar por paciente..."
-              className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white w-64"
-            />
-          </div>
-        </div>
-        {loading ? (
-          <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-indigo-300" /></div>
-        ) : (
-          <div className="space-y-3">
-            {filtrarNombre(ingresosAnteriores).map(i => <IngresoCard key={i.id} ingreso={i} />)}
-            {ingresosAnteriores.length === 0 && (
-              <div className="text-center py-8 text-gray-400 text-sm">No hay ingresos anteriores.</div>
+          <div className="flex items-center gap-3">
+            <h3 className="font-semibold text-sm text-gray-500">Historial</h3>
+            {!verTodo && ingresosAnteriores.length > 0 && (
+              <button
+                onClick={() => setVerTodo(true)}
+                className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition"
+              >
+                <ListFilter className="w-3.5 h-3.5" />
+                Ver todo ({ingresosAnteriores.length})
+              </button>
+            )}
+            {verTodo && (
+              <span className="text-xs text-gray-400">
+                {historialFiltrado.length} registros
+              </span>
             )}
           </div>
+          {verTodo && (
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                placeholder="Buscar por paciente..."
+                className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white w-64"
+              />
+            </div>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-indigo-300" /></div>
+        ) : !verTodo ? (
+          <div className="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-2xl">
+            El historial tiene {ingresosAnteriores.length} registros anteriores.{" "}
+            <button onClick={() => setVerTodo(true)} className="text-indigo-600 font-semibold hover:underline">
+              Ver todo
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-3">
+              {historialVista.map(i => <IngresoCard key={i.id} ingreso={i} />)}
+              {historialFiltrado.length === 0 && (
+                <div className="text-center py-8 text-gray-400 text-sm">No se encontraron resultados.</div>
+              )}
+            </div>
+
+            {totalPaginas > 1 && (
+              <div className="flex items-center justify-center gap-3 mt-6">
+                <button
+                  onClick={() => setPagina(p => Math.max(1, p - 1))}
+                  disabled={pagina === 1}
+                  className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-gray-600">
+                  Página <span className="font-semibold">{pagina}</span> de <span className="font-semibold">{totalPaginas}</span>
+                </span>
+                <button
+                  onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                  disabled={pagina === totalPaginas}
+                  className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

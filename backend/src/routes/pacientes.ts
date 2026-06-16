@@ -44,7 +44,7 @@ const PACIENTE_SELECT = `
       END AS estado
     FROM ordenes o
     JOIN modalidades m ON m.id = o.modalidad_id
-    JOIN terapeutas t ON t.id = o.terapeuta_inicial_id
+    LEFT JOIN terapeutas t ON t.id = o.terapeuta_inicial_id
     LEFT JOIN usuarios ur ON ur.id = o.registrada_por_id
     WHERE o.activa = true
     ORDER BY o.paciente_id, o.fecha_registro DESC
