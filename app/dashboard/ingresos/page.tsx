@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Search, Clock, Users, CheckCircle2, Loader2, AlertTriangle, ChevronLeft, ChevronRight, ListFilter } from "lucide-react";
+import { Plus, Search, Clock, Users, CheckCircle2, Loader2, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { ingresosApi, pacientesApi } from "@/lib/api";
 import { getEstadoConfig } from "@/lib/calculos";
 import { formatHora } from "@/lib/utils";
@@ -129,35 +129,15 @@ export default function IngresosPage() {
         )}
       </div>
 
-      {/* Ingresos de hoy */}
-      {!loading && ingresosDeHoy.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <h3 className="font-semibold text-gray-900 text-sm">Ingresos de hoy</h3>
-            <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">
-              {ingresosDeHoy.length}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {ingresosDeHoy.map(i => <IngresoCard key={i.id} ingreso={i} esNuevo />)}
-          </div>
-        </div>
-      )}
-
       {/* Historial */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <h3 className="font-semibold text-sm text-gray-500">Historial</h3>
-            {!verTodo && ingresosAnteriores.length > 0 && (
-              <button
-                onClick={() => setVerTodo(true)}
-                className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition"
-              >
-                <ListFilter className="w-3.5 h-3.5" />
-                Ver todo ({ingresosAnteriores.length})
-              </button>
+            <h3 className="font-semibold text-sm text-gray-500">
+              {verTodo ? "Historial completo" : ingresosDeHoy.length > 0 ? "Ingresos de hoy" : "Últimos ingresos"}
+            </h3>
+            {!verTodo && (
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             )}
             {verTodo && (
               <span className="text-xs text-gray-400">
@@ -181,12 +161,23 @@ export default function IngresosPage() {
         {loading ? (
           <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-indigo-300" /></div>
         ) : !verTodo ? (
-          <div className="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-2xl">
-            El historial tiene {ingresosAnteriores.length} registros anteriores.{" "}
-            <button onClick={() => setVerTodo(true)} className="text-indigo-600 font-semibold hover:underline">
-              Ver todo
-            </button>
-          </div>
+          <>
+            <div className="space-y-3">
+              {(ingresosDeHoy.length > 0 ? ingresosDeHoy : historialFiltrado.slice(0, 10)).map(i =>
+                <IngresoCard key={i.id} ingreso={i} esNuevo={i.fecha === HOY} />
+              )}
+            </div>
+            {ingresosAnteriores.length > 0 && (
+              <div className="text-center mt-4">
+                <button
+                  onClick={() => setVerTodo(true)}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 font-semibold hover:underline"
+                >
+                  Ver todo el historial ({ingresosAnteriores.length} registros)
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <>
             <div className="space-y-3">
