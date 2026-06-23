@@ -1,42 +1,28 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Search, Clock, Users, CheckCircle2, Loader2, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
-import { ingresosApi, pacientesApi } from "@/lib/api";
-import { getEstadoConfig } from "@/lib/calculos";
+import { Plus, Search, Clock, Users, Loader2, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { ingresosApi } from "@/lib/api";
 import { formatHora } from "@/lib/utils";
-import type { Ingreso, Paciente } from "@/lib/tipos";
+import type { Ingreso } from "@/lib/tipos";
 
 const HOY = new Date().toISOString().split("T")[0];
 const POR_PAGINA = 20;
 
 export default function IngresosPage() {
-  const [ingresos, setIngresos]     = useState<Ingreso[]>([]);
-  const [proximos, setProximos]     = useState<Paciente[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState("");
-  const [busqueda, setBusqueda]     = useState("");
-  const [verTodo, setVerTodo]       = useState(false);
-  const [pagina, setPagina]         = useState(1);
+  const [ingresos, setIngresos] = useState<Ingreso[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const [verTodo, setVerTodo]   = useState(false);
+  const [pagina, setPagina]     = useState(1);
 
   const cargarDatos = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [ingresosData, pacientesData] = await Promise.all([
-        ingresosApi.getAll() as Promise<Ingreso[]>,
-        pacientesApi.getAll() as Promise<Paciente[]>,
-      ]);
-      setIngresos(ingresosData);
-
-      const p = pacientesData
-        .filter(p =>
-          p.orden_activa &&
-          ["ACTIVO","AUSENTE","NUEVO"].includes(p.categoria) &&
-          p.orden_activa.estado === "NORMAL"
-        )
-        .slice(0, 8);
-      setProximos(p);
+      const data = await ingresosApi.getAll() as Ingreso[];
+      setIngresos(data);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al cargar");
     } finally {
@@ -49,16 +35,22 @@ export default function IngresosPage() {
   const ingresosDeHoy      = ingresos.filter(i => i.fecha === HOY);
   const ingresosAnteriores = ingresos.filter(i => i.fecha !== HOY);
 
+  // Pacientes únicos del día
+  const pacientesDelDia = ingresosDeHoy.reduce<{ id: number; nombre: string; hora: string; tipo: string }[]>((acc, ing) => {
+    if (!acc.some(p => p.id === ing.paciente_id)) {
+      acc.push({ id: ing.paciente_id, nombre: ing.paciente_nombre, hora: formatHora(ing.hora), tipo: ing.tipo_ingreso_nombre });
+    }
+    return acc;
+  }, []);
+
   const historialFiltrado = ingresosAnteriores.filter(i =>
     i.paciente_nombre.toLowerCase().includes(busqueda.toLowerCase())
   );
 
-  // Resetear página al cambiar búsqueda o modo
   useEffect(() => { setPagina(1); }, [busqueda, verTodo]);
 
   const totalPaginas  = Math.ceil(historialFiltrado.length / POR_PAGINA);
   const historialPag  = historialFiltrado.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
-  const historialVista = verTodo ? historialPag : [];
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
@@ -83,48 +75,36 @@ export default function IngresosPage() {
         </div>
       )}
 
-      {/* Pacientes con orden activa */}
+      {/* Pacientes del día */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center gap-2 mb-4">
           <Users className="w-5 h-5 text-indigo-500" />
-          <h3 className="font-semibold text-gray-900">Pacientes con orden activa</h3>
-          <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium">
-            {proximos.length} pacientes
+          <h3 className="font-semibold text-gray-900">Pacientes del día</h3>
+          <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+            {pacientesDelDia.length}
           </span>
         </div>
         {loading ? (
           <div className="flex justify-center py-6"><Loader2 className="w-6 h-6 animate-spin text-indigo-300" /></div>
-        ) : proximos.length === 0 ? (
-          <p className="text-sm text-gray-400 py-4 text-center">No hay pacientes con orden activa vigente.</p>
+        ) : pacientesDelDia.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center">No hay ingresos registrados hoy.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {proximos.map(p => {
-              const cfg   = p.orden_activa ? getEstadoConfig(p.orden_activa.estado) : null;
-              const yaHoy = ingresosDeHoy.some(i => i.paciente_id === p.id);
-              return (
-                <div key={p.id}
-                  className={`flex items-center gap-3 p-3 rounded-xl border transition ${
-                    yaHoy ? "bg-emerald-50 border-emerald-200" : "bg-gray-50 border-gray-100 hover:border-indigo-200"
-                  }`}>
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0">
-                    {p.nombre_completo.split(" ").slice(0,2).map(n=>n[0]).join("")}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-900 truncate">{p.nombre_completo}</p>
-                    <p className="text-xs text-gray-400">{(p.diagnostico_nombre || "").slice(0,28)}…</p>
-                  </div>
-                  {yaHoy ? (
-                    <span className="flex items-center gap-1 text-xs text-emerald-700 font-semibold flex-shrink-0">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Asistió
-                    </span>
-                  ) : cfg ? (
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${cfg.bg} ${cfg.color}`}>
-                      {cfg.label}
-                    </span>
-                  ) : null}
+            {pacientesDelDia.map(p => (
+              <div key={p.id}
+                className="flex items-center gap-3 p-3 rounded-xl border bg-emerald-50 border-emerald-200">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold flex-shrink-0">
+                  {p.nombre.split(" ").slice(0,2).map(n=>n[0]).join("")}
                 </div>
-              );
-            })}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-gray-900 truncate">{p.nombre}</p>
+                  <p className="text-xs text-gray-500">{p.tipo}</p>
+                </div>
+                <span className="flex items-center gap-1 text-xs text-emerald-700 font-semibold flex-shrink-0">
+                  <Clock className="w-3 h-3" /> {p.hora}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -181,7 +161,7 @@ export default function IngresosPage() {
         ) : (
           <>
             <div className="space-y-3">
-              {historialVista.map(i => <IngresoCard key={i.id} ingreso={i} />)}
+              {historialPag.map(i => <IngresoCard key={i.id} ingreso={i} />)}
               {historialFiltrado.length === 0 && (
                 <div className="text-center py-8 text-gray-400 text-sm">No se encontraron resultados.</div>
               )}

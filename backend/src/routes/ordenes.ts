@@ -74,7 +74,7 @@ const ORDEN_SELECT = `
 // GET /api/ordenes
 router.get("/", async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const r = await query(`${ORDEN_SELECT} ORDER BY o.fecha_registro DESC`);
+    const r = await query(`${ORDEN_SELECT} ORDER BY p.primer_apellido, p.primer_nombre`);
     res.json(r.rows);
   } catch (err) {
     console.error("[ordenes/GET]", err);
