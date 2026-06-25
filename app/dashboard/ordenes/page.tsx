@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Plus, Search, Calendar, Hash, ChevronRight, ChevronLeft, AlertTriangle,
@@ -66,6 +67,28 @@ export default function OrdenesPage() {
   const [detalle,        setDetalle]        = useState<OrdenDetalle | null>(null);
   const [detalleLoading, setDetalleLoading] = useState(false);
 
+  const searchParams = useSearchParams();
+
+  const abrirDetalle = useCallback(async (id: number) => {
+    setDetalleLoading(true);
+    setDetalle(null);
+    try {
+      const data = await ordenesApi.getById(id) as OrdenDetalle;
+      setDetalle(data);
+    } catch {
+      setDetalle(null);
+    } finally {
+      setDetalleLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const ordenParam = searchParams.get("orden");
+    if (ordenParam) {
+      abrirDetalle(Number(ordenParam));
+    }
+  }, [searchParams, abrirDetalle]);
+
   const cargar = useCallback((p: number, search: string, estado: string) => {
     setLoading(true);
     ordenesApi.getAll({ page: p, limit: PAGE_SIZE, search, estado })
@@ -101,19 +124,6 @@ export default function OrdenesPage() {
 
   const cambiarPagina = (p: number) => {
     cargar(p, busqueda, filtroEstado);
-  };
-
-  const abrirDetalle = async (id: number) => {
-    setDetalleLoading(true);
-    setDetalle(null);
-    try {
-      const data = await ordenesApi.getById(id) as OrdenDetalle;
-      setDetalle(data);
-    } catch {
-      setDetalle(null);
-    } finally {
-      setDetalleLoading(false);
-    }
   };
 
   const abrirEditar = (o: OrdenExtendida) => {

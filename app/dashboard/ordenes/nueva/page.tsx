@@ -41,6 +41,7 @@ export default function NuevaOrdenPage() {
   const [guardando,        setGuardando]        = useState(false);
   const [error,            setError]            = useState("");
   const [ordenActivaError, setOrdenActivaError] = useState("");
+  const [ordenActivaId,    setOrdenActivaId]    = useState<number | null>(null);
 
   const [busqueda,       setBusqueda]       = useState("");
   const [sugerencias,    setSugerencias]    = useState<PacienteBusqueda[]>([]);
@@ -61,12 +62,14 @@ export default function NuevaOrdenPage() {
   const seleccionarPaciente = async (p: PacienteBusqueda) => {
     setBusqueda(""); setSugerencias([]); setMostrarLista(false);
     setOrdenActivaError("");
+    setOrdenActivaId(null);
     setPacienteInfo(null);
     try {
       const full = await pacientesApi.getById(p.id) as Paciente;
       setPacienteInfo(full);
       if (full.orden_activa && !["VENCIDA","INACTIVO"].includes(full.orden_activa.estado)) {
         setOrdenActivaError(`Este paciente ya tiene una orden activa (#${full.orden_activa.id}). Debe cerrar la orden actual antes de crear una nueva.`);
+        setOrdenActivaId(full.orden_activa.id);
         return;
       }
       setForm(prev => ({ ...prev, paciente_id: String(p.id) }));
@@ -79,7 +82,7 @@ export default function NuevaOrdenPage() {
   const limpiarPaciente = () => {
     setForm(prev => ({ ...prev, paciente_id: "" }));
     setPacienteInfo(null);
-    setBusqueda(""); setOrdenActivaError("");
+    setBusqueda(""); setOrdenActivaError(""); setOrdenActivaId(null);
   };
 
   const [archivo,        setArchivo]        = useState<File | null>(null);
@@ -498,8 +501,8 @@ export default function NuevaOrdenPage() {
             <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <div>
               <p>{ordenActivaError}</p>
-              <Link href="/dashboard/ordenes" className="text-red-800 font-semibold underline text-xs mt-1 inline-block">
-                Ir a gestionar órdenes
+              <Link href={ordenActivaId ? `/dashboard/ordenes?orden=${ordenActivaId}` : "/dashboard/ordenes"} className="text-red-800 font-semibold underline text-xs mt-1 inline-block">
+                Ir a gestionar la orden
               </Link>
             </div>
           </div>

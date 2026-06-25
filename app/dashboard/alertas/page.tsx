@@ -66,8 +66,8 @@ function AlertaCard({ alerta }: { alerta: Alerta }) {
             className="text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition text-center">
             Ver paciente
           </Link>
-          {alerta.tipo !== "AUSENTE" && (
-            <Link href="/dashboard/ordenes"
+          {alerta.tipo !== "AUSENTE" && alerta.orden_id && (
+            <Link href={`/dashboard/ordenes?orden=${alerta.orden_id}`}
               className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-center">
               Gestionar orden
             </Link>
