@@ -1,7 +1,7 @@
 /**
  * /api/ordenes — CRUD de órdenes médicas
  */
-import { Router, Response } from "express";
+import { Router, Response, NextFunction } from "express";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
@@ -72,10 +72,29 @@ const ORDEN_SELECT = `
 `;
 
 // GET /api/ordenes
-router.get("/", async (_req: AuthRequest, res: Response): Promise<void> => {
+router.get("/", async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const r = await query(`${ORDEN_SELECT} ORDER BY p.primer_apellido, p.primer_nombre`);
-    res.json(r.rows);
+    const page   = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
+    const search = ((req.query.search as string) || "").trim();
+    const estado = ((req.query.estado as string) || "TODOS").trim();
+    const offset = (page - 1) * limit;
+
+    const r = await query(
+      `WITH ordenes_calc AS (${ORDEN_SELECT})
+       SELECT *, COUNT(*) OVER() AS total_count
+       FROM ordenes_calc
+       WHERE ($1 = '' OR LOWER(paciente_nombre) LIKE '%' || LOWER($1) || '%')
+         AND ($2 = 'TODOS' OR estado = $2)
+       ORDER BY paciente_nombre
+       LIMIT $3 OFFSET $4`,
+      [search, estado, limit, offset]
+    );
+
+    const total = r.rows.length > 0 ? parseInt(String(r.rows[0]["total_count"])) : 0;
+    const data  = r.rows.map(({ total_count, ...rest }) => rest);
+
+    res.json({ data, total, page, totalPages: Math.ceil(total / limit) });
   } catch (err) {
     console.error("[ordenes/GET]", err);
     res.status(500).json({ error: "Error al obtener órdenes" });
@@ -109,7 +128,23 @@ router.get("/:id", async (req: AuthRequest, res: Response): Promise<void> => {
 router.post(
   "/",
   requireRole("ADMIN", "COORDINADOR"),
-  upload.single("adjunto"),
+  (req: AuthRequest, res: Response, next: NextFunction) => {
+    upload.single("adjunto")(req, res, (err: unknown) => {
+      if (err instanceof multer.MulterError) {
+        const msgs: Record<string, string> = {
+          LIMIT_FILE_SIZE: "El archivo excede el tamaño máximo de 10 MB",
+          LIMIT_UNEXPECTED_FILE: "Campo de archivo inesperado",
+        };
+        res.status(400).json({ error: msgs[err.code] || `Error de archivo: ${err.message}` });
+        return;
+      }
+      if (err) {
+        res.status(500).json({ error: "Error al procesar el archivo adjunto" });
+        return;
+      }
+      next();
+    });
+  },
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const {
@@ -122,7 +157,6 @@ router.post(
         return;
       }
 
-      // Un paciente solo puede tener una orden activa a la vez
       const existing = await query(
         `SELECT id FROM ordenes WHERE paciente_id = $1 AND activa = true LIMIT 1`,
         [paciente_id]

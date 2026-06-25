@@ -89,8 +89,21 @@ export const pacientesApi = {
 };
 
 // ─── ÓRDENES ──────────────────────────────────────────────────────────────────
+export interface OrdenesPaginadas {
+  data: unknown[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
 export const ordenesApi = {
-  getAll: () => apiFetch<unknown[]>("/ordenes"),
+  getAll: (params?: { page?: number; limit?: number; search?: string; estado?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.page)   qs.set("page",   String(params.page));
+    if (params?.limit)  qs.set("limit",  String(params.limit));
+    if (params?.search) qs.set("search", params.search);
+    if (params?.estado && params.estado !== "TODOS") qs.set("estado", params.estado);
+    return apiFetch<OrdenesPaginadas>(`/ordenes${qs.toString() ? "?" + qs : ""}`);
+  },
   getById: (id: number) => apiFetch<unknown>(`/ordenes/${id}`),
   create: (data: FormData) =>
     apiFetch<unknown>("/ordenes", { method: "POST", body: data }),
