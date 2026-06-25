@@ -208,8 +208,12 @@ router.put(
     try {
       const { tipo_cambio, valor_nuevo, motivo } = req.body;
 
-      if (!tipo_cambio || !valor_nuevo || !motivo) {
-        res.status(400).json({ error: "tipo_cambio, valor_nuevo y motivo son requeridos" });
+      if (!tipo_cambio || !motivo) {
+        res.status(400).json({ error: "tipo_cambio y motivo son requeridos" });
+        return;
+      }
+      if (tipo_cambio !== "CIERRE" && !valor_nuevo) {
+        res.status(400).json({ error: "valor_nuevo es requerido para este tipo de cambio" });
         return;
       }
 

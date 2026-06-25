@@ -1,14 +1,14 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Search, Calendar, Hash, ChevronRight, ChevronLeft, AlertTriangle, Loader2, Pencil, X, Check } from "lucide-react";
+import { Plus, Search, Calendar, Hash, ChevronRight, ChevronLeft, AlertTriangle, Loader2, Pencil, X, Check, Ban } from "lucide-react";
 import { ordenesApi } from "@/lib/api";
 import { getEstadoConfig, requiereAlerta, requiereAlertaSesiones } from "@/lib/calculos";
 import { formatFecha } from "@/lib/utils";
 import type { Orden } from "@/lib/tipos";
 
 type OrdenExtendida = Orden & { paciente_nombre?: string; eps_nombre?: string };
-type TipoCambio = "EXTENSION_FECHA" | "AMPLIACION_SESIONES" | "AJUSTE_CONSUMIDAS";
+type TipoCambio = "EXTENSION_FECHA" | "AMPLIACION_SESIONES" | "AJUSTE_CONSUMIDAS" | "CIERRE";
 
 const ESTADOS = ["TODOS", "NORMAL", "VENCIDA", "INACTIVO"];
 const PAGE_SIZE = 10;
@@ -79,8 +79,12 @@ export default function OrdenesPage() {
   };
 
   const guardarEdicion = async (ordenId: number) => {
-    if (!editForm.valor_nuevo || !editForm.motivo) {
+    if (editForm.tipo_cambio !== "CIERRE" && !editForm.valor_nuevo) {
       setEditError("Completa todos los campos.");
+      return;
+    }
+    if (!editForm.motivo) {
+      setEditError("Debes indicar el motivo.");
       return;
     }
     setGuardando(true);
@@ -88,8 +92,8 @@ export default function OrdenesPage() {
     try {
       await ordenesApi.update(ordenId, {
         tipo_cambio: editForm.tipo_cambio,
-        valor_nuevo: editForm.valor_nuevo,
-        motivo:      editForm.motivo,
+        ...(editForm.tipo_cambio !== "CIERRE" ? { valor_nuevo: editForm.valor_nuevo } : {}),
+        motivo: editForm.motivo,
       });
       setEditingId(null);
       cargar(page, busqueda, filtroEstado);
@@ -101,6 +105,13 @@ export default function OrdenesPage() {
   };
 
   const puedeEditar = rol === "ADMIN" || rol === "COORDINADOR";
+
+  const LABELS_CAMBIO: Record<string, string> = {
+    EXTENSION_FECHA: "Ampliar fecha de finalización",
+    AMPLIACION_SESIONES: "Ampliar sesiones autorizadas",
+    AJUSTE_CONSUMIDAS: "Registrar sesiones no contabilizadas",
+    CIERRE: "Vencer / Cerrar orden",
+  };
 
   return (
     <div className="p-6 space-y-5 max-w-7xl mx-auto">
@@ -147,21 +158,28 @@ export default function OrdenesPage() {
               const cfg = getEstadoConfig(o.estado);
               const tieneAlerta = requiereAlerta(o.dias_restantes) || requiereAlertaSesiones(o.sesiones_restantes);
               const esEditando  = editingId === o.id;
+              const esActiva    = o.activa;
+
+              const opcionesCambio: TipoCambio[] = esActiva
+                ? o.tipo_limite === "FECHA"
+                  ? ["EXTENSION_FECHA", "CIERRE"]
+                  : ["AMPLIACION_SESIONES", "AJUSTE_CONSUMIDAS", "EXTENSION_FECHA", "CIERRE"]
+                : [];
 
               return (
                 <div key={o.id} className={`bg-white rounded-2xl border shadow-sm transition ${
-                  tieneAlerta ? "border-amber-200" : "border-gray-100"
+                  !esActiva ? "opacity-60 border-gray-200" : tieneAlerta ? "border-amber-200" : "border-gray-100"
                 }`}>
                   <div className="p-5 flex items-center gap-5">
-                    <div className={`w-1 h-16 rounded-full flex-shrink-0 ${tieneAlerta ? "bg-amber-400" : cfg.dot}`} />
+                    <div className={`w-1 h-16 rounded-full flex-shrink-0 ${!esActiva ? "bg-gray-300" : tieneAlerta ? "bg-amber-400" : cfg.dot}`} />
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-semibold text-gray-900 text-sm">{o.paciente_nombre}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${cfg.bg} ${cfg.color}`}>
-                          {cfg.label}
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${!esActiva ? "bg-gray-100 text-gray-500" : `${cfg.bg} ${cfg.color}`}`}>
+                          {!esActiva ? "CERRADA" : cfg.label}
                         </span>
-                        {tieneAlerta && (
+                        {esActiva && tieneAlerta && (
                           <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700">
                             <AlertTriangle className="w-3 h-3" />
                             {o.tipo_limite === "FECHA"
@@ -211,7 +229,7 @@ export default function OrdenesPage() {
                       </div>
                     </div>
 
-                    {puedeEditar && (
+                    {puedeEditar && esActiva && (
                       <button
                         onClick={() => esEditando ? setEditingId(null) : abrirEditar(o)}
                         className={`p-2 rounded-xl transition flex-shrink-0 ${
@@ -231,49 +249,67 @@ export default function OrdenesPage() {
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Editar orden #{o.id}</p>
 
                       <div className="flex gap-4 flex-wrap">
-                        {(o.tipo_limite === "FECHA"
-                          ? (["EXTENSION_FECHA"] as TipoCambio[])
-                          : (["AMPLIACION_SESIONES", "AJUSTE_CONSUMIDAS", "EXTENSION_FECHA"] as TipoCambio[])
-                        ).map(tc => (
-                          <label key={tc} className="flex items-center gap-2 text-sm cursor-pointer">
+                        {opcionesCambio.map(tc => (
+                          <label key={tc} className={`flex items-center gap-2 text-sm cursor-pointer ${tc === "CIERRE" ? "text-red-700" : ""}`}>
                             <input type="radio" name={`tipo_cambio_${o.id}`}
                               checked={editForm.tipo_cambio === tc}
                               onChange={() => setEditForm(f => ({ ...f, tipo_cambio: tc, valor_nuevo: "" }))}
-                              className="text-indigo-600" />
-                            {{ EXTENSION_FECHA: "Ampliar fecha de finalización", AMPLIACION_SESIONES: "Ampliar sesiones autorizadas", AJUSTE_CONSUMIDAS: "Registrar sesiones no contabilizadas" }[tc]}
+                              className={tc === "CIERRE" ? "text-red-600" : "text-indigo-600"} />
+                            {LABELS_CAMBIO[tc]}
                           </label>
                         ))}
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
-                            {editForm.tipo_cambio === "EXTENSION_FECHA"
-                              ? "Nueva fecha de vencimiento"
-                              : editForm.tipo_cambio === "AMPLIACION_SESIONES"
-                              ? "Sesiones adicionales a autorizar"
-                              : "Sesiones no registradas a agregar"}
-                          </label>
-                          <input
-                            type={editForm.tipo_cambio === "EXTENSION_FECHA" ? "date" : "number"}
-                            min={editForm.tipo_cambio !== "EXTENSION_FECHA" ? "1" : undefined}
-                            value={editForm.valor_nuevo}
-                            onChange={e => setEditForm(f => ({ ...f, valor_nuevo: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
+                      {editForm.tipo_cambio === "CIERRE" ? (
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+                            <Ban className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                            <p className="text-sm text-red-700">
+                              Al cerrar esta orden, el paciente podrá recibir una nueva orden. Esta acción no se puede deshacer.
+                            </p>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Motivo del cierre</label>
+                            <input
+                              type="text"
+                              value={editForm.motivo}
+                              onChange={e => setEditForm(f => ({ ...f, motivo: e.target.value }))}
+                              placeholder="Ej: Orden vencida, paciente dado de alta, cambio de EPS..."
+                              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                            />
+                          </div>
                         </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              {editForm.tipo_cambio === "EXTENSION_FECHA"
+                                ? "Nueva fecha de vencimiento"
+                                : editForm.tipo_cambio === "AMPLIACION_SESIONES"
+                                ? "Sesiones adicionales a autorizar"
+                                : "Sesiones no registradas a agregar"}
+                            </label>
+                            <input
+                              type={editForm.tipo_cambio === "EXTENSION_FECHA" ? "date" : "number"}
+                              min={editForm.tipo_cambio !== "EXTENSION_FECHA" ? "1" : undefined}
+                              value={editForm.valor_nuevo}
+                              onChange={e => setEditForm(f => ({ ...f, valor_nuevo: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
 
-                        <div className="sm:col-span-2">
-                          <label className="block text-xs font-medium text-gray-600 mb-1">Motivo del cambio</label>
-                          <input
-                            type="text"
-                            value={editForm.motivo}
-                            onChange={e => setEditForm(f => ({ ...f, motivo: e.target.value }))}
-                            placeholder="Ej: Ampliación autorizada por médico tratante"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Motivo del cambio</label>
+                            <input
+                              type="text"
+                              value={editForm.motivo}
+                              onChange={e => setEditForm(f => ({ ...f, motivo: e.target.value }))}
+                              placeholder="Ej: Ampliación autorizada por médico tratante"
+                              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {editError && (
                         <p className="text-xs text-red-600">{editError}</p>
@@ -285,9 +321,13 @@ export default function OrdenesPage() {
                           Cancelar
                         </button>
                         <button onClick={() => guardarEdicion(o.id)} disabled={guardando}
-                          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition disabled:opacity-60">
-                          {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                          Guardar cambio
+                          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-60 ${
+                            editForm.tipo_cambio === "CIERRE"
+                              ? "bg-red-600 hover:bg-red-700 text-white"
+                              : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                          }`}>
+                          {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : editForm.tipo_cambio === "CIERRE" ? <Ban className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                          {editForm.tipo_cambio === "CIERRE" ? "Cerrar orden" : "Guardar cambio"}
                         </button>
                       </div>
                     </div>
