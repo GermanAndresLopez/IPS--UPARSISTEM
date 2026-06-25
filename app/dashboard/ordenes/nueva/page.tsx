@@ -71,7 +71,7 @@ export default function NuevaOrdenPage() {
       }
       setForm(prev => ({ ...prev, paciente_id: String(p.id) }));
     } catch {
-      setForm(prev => ({ ...prev, paciente_id: String(p.id) }));
+      setOrdenActivaError("No se pudo verificar el estado del paciente. Intente de nuevo.");
       setPacienteInfo(null);
     }
   };

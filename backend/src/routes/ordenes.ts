@@ -47,6 +47,7 @@ const ORDEN_SELECT = `
       THEN (o.fecha_fin - CURRENT_DATE)::int ELSE NULL
     END AS dias_restantes,
     CASE
+      WHEN o.activa = false THEN 'INACTIVO'
       WHEN o.tipo_limite = 'FECHA' THEN
         CASE
           WHEN o.fecha_fin IS NULL THEN 'NORMAL'
@@ -157,43 +158,66 @@ router.post(
         return;
       }
 
-      const existing = await query(
-        `SELECT id FROM ordenes WHERE paciente_id = $1 AND activa = true LIMIT 1`,
-        [paciente_id]
-      );
-      if (existing.rows.length > 0) {
-        res.status(409).json({ error: `El paciente ya tiene una orden activa (#${existing.rows[0]["id"]}). Cierre o venza la orden actual antes de crear una nueva.` });
-        return;
-      }
-
       const archivo = req.file
         ? `/uploads/ordenes/${req.file.filename}`
         : null;
 
-      const r = await query(
-        `INSERT INTO ordenes
-          (paciente_id, tipo_limite, fecha_emision, fecha_inicio, fecha_fin,
-           sesiones_autorizadas, modalidad_id, terapeuta_inicial_id,
-           archivo_adjunto, registrada_por_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-        [
-          paciente_id, tipo_limite, fecha_emision, fecha_inicio,
-          tipo_limite === "FECHA" ? (fecha_fin || null) : null,
-          tipo_limite === "CANTIDAD_TERAPIAS" ? (sesiones_autorizadas || null) : null,
-          modalidad_id, terapeuta_inicial_id || null, archivo, req.user!.id,
-        ]
-      );
-      const newId = r.rows[0]["id"];
+      const newId = await withTransaction(async (txQuery) => {
+        // Verificar orden activa vigente dentro de la transacción (evita race condition)
+        const existing = await txQuery(
+          `SELECT id FROM ordenes
+           WHERE paciente_id = $1 AND activa = true
+             AND (
+               (tipo_limite = 'FECHA' AND (fecha_fin IS NULL OR fecha_fin >= CURRENT_DATE))
+               OR
+               (tipo_limite = 'CANTIDAD_TERAPIAS' AND sesiones_autorizadas > sesiones_consumidas)
+             )
+           LIMIT 1`,
+          [paciente_id]
+        );
+        if (existing.rows.length > 0) {
+          throw Object.assign(new Error(`El paciente ya tiene una orden vigente (#${existing.rows[0]["id"]}). Cierre la orden actual antes de crear una nueva.`), { status: 409 });
+        }
 
-      await query(
-        `INSERT INTO auditoria (usuario_id, tipo_accion, modulo, registro_id, descripcion)
-         VALUES ($1,'CREAR','ORDENES',$2,$3)`,
-        [req.user!.id, newId, `Creó orden #${newId} para paciente ID ${paciente_id}`]
-      );
+        // Desactivar órdenes vencidas que aún tengan activa=true
+        await txQuery(
+          `UPDATE ordenes SET activa = false
+           WHERE paciente_id = $1 AND activa = true`,
+          [paciente_id]
+        );
+
+        const r = await txQuery(
+          `INSERT INTO ordenes
+            (paciente_id, tipo_limite, fecha_emision, fecha_inicio, fecha_fin,
+             sesiones_autorizadas, modalidad_id, terapeuta_inicial_id,
+             archivo_adjunto, registrada_por_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+          [
+            paciente_id, tipo_limite, fecha_emision, fecha_inicio,
+            tipo_limite === "FECHA" ? (fecha_fin || null) : null,
+            tipo_limite === "CANTIDAD_TERAPIAS" ? (sesiones_autorizadas || null) : null,
+            modalidad_id, terapeuta_inicial_id || null, archivo, req.user!.id,
+          ]
+        );
+        const id = r.rows[0]["id"];
+
+        await txQuery(
+          `INSERT INTO auditoria (usuario_id, tipo_accion, modulo, registro_id, descripcion)
+           VALUES ($1,'CREAR','ORDENES',$2,$3)`,
+          [req.user!.id, id, `Creó orden #${id} para paciente ID ${paciente_id}`]
+        );
+
+        return id;
+      });
 
       const full = await query(`${ORDEN_SELECT} WHERE o.id = $1`, [newId]);
       res.status(201).json(full.rows[0]);
-    } catch (err) {
+    } catch (err: unknown) {
+      const e = err as { status?: number; message?: string };
+      if (e.status === 409) {
+        res.status(409).json({ error: e.message });
+        return;
+      }
       console.error("[ordenes/POST]", err);
       res.status(500).json({ error: "Error al crear orden" });
     }
@@ -220,6 +244,11 @@ router.put(
       const current = await query("SELECT * FROM ordenes WHERE id=$1", [req.params.id]);
       if (!current.rows[0]) { res.status(404).json({ error: "Orden no encontrada" }); return; }
       const ord = current.rows[0];
+
+      if (!ord["activa"]) {
+        res.status(400).json({ error: "No se puede modificar una orden que ya fue cerrada" });
+        return;
+      }
 
       await withTransaction(async (txQuery) => {
         if (tipo_cambio === "EXTENSION_FECHA") {
@@ -269,7 +298,7 @@ router.put(
         await txQuery(
           `INSERT INTO auditoria (usuario_id, tipo_accion, modulo, registro_id, descripcion, valor_nuevo)
            VALUES ($1,'EDITAR','ORDENES',$2,$3,$4)`,
-          [req.user!.id, req.params.id, `${tipo_cambio} en orden #${req.params.id}`, valor_nuevo]
+          [req.user!.id, req.params.id, `${tipo_cambio} en orden #${req.params.id}`, tipo_cambio === "CIERRE" ? "inactiva" : valor_nuevo]
         );
       });
 

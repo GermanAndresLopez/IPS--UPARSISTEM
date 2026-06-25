@@ -146,7 +146,6 @@ router.post(
         return;
       }
 
-      // Validar que pacientes ORDEN tengan una orden activa
       const pacCheck = await query(
         `SELECT tipo_paciente FROM pacientes WHERE id = $1`, [paciente_id]
       );
@@ -157,6 +156,40 @@ router.post(
       if (pacCheck.rows[0]["tipo_paciente"] === "ORDEN" && !orden_id) {
         res.status(400).json({ error: "Este paciente requiere una orden activa para registrar un ingreso. Cree una orden primero." });
         return;
+      }
+
+      if (orden_id) {
+        const ordCheck = await query(
+          `SELECT id, paciente_id, activa, tipo_limite, sesiones_autorizadas, sesiones_consumidas,
+                  CASE WHEN tipo_limite = 'FECHA' AND fecha_fin IS NOT NULL
+                    THEN (fecha_fin - CURRENT_DATE)::int ELSE NULL END AS dias_restantes
+           FROM ordenes WHERE id = $1`,
+          [orden_id]
+        );
+        if (!ordCheck.rows[0]) {
+          res.status(404).json({ error: "Orden no encontrada" });
+          return;
+        }
+        const ord = ordCheck.rows[0];
+        if (ord["paciente_id"] !== Number(paciente_id)) {
+          res.status(400).json({ error: "La orden no pertenece a este paciente" });
+          return;
+        }
+        if (!ord["activa"]) {
+          res.status(400).json({ error: "La orden está cerrada. No se pueden registrar ingresos." });
+          return;
+        }
+        if (ord["tipo_limite"] === "CANTIDAD_TERAPIAS") {
+          const restantes = Number(ord["sesiones_autorizadas"]) - Number(ord["sesiones_consumidas"]);
+          if (restantes <= 0) {
+            res.status(400).json({ error: "La orden no tiene sesiones disponibles." });
+            return;
+          }
+        }
+        if (ord["tipo_limite"] === "FECHA" && ord["dias_restantes"] != null && Number(ord["dias_restantes"]) < 0) {
+          res.status(400).json({ error: "La orden está vencida por fecha." });
+          return;
+        }
       }
 
       const newId = await withTransaction(async (txQuery) => {

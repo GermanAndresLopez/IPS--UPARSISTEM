@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Search, Plus, Phone, ChevronRight, ChevronLeft, Loader2, AlertTriangle } from "lucide-react";
 import { pacientesApi } from "@/lib/api";
@@ -50,13 +50,19 @@ export default function PacientesPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const mountedRef = useRef(false);
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("terapia_user") || "{}");
     setRol(user.rol ?? "");
-    cargar(1, "", "TODOS");
-  }, [cargar]);
+  }, []);
 
   useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      cargar(1, busqueda, filtroCategoria);
+      return;
+    }
     const timeout = setTimeout(() => {
       setPage(1);
       cargar(1, busqueda, filtroCategoria);
