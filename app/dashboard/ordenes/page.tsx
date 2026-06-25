@@ -514,6 +514,50 @@ export default function OrdenesPage() {
                       </div>
                     )}
 
+                    {/* Soporte adjunto */}
+                    {detalle.archivo_adjunto && (() => {
+                      const backendUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api").replace(/\/api$/, "");
+                      const url = `${backendUrl}${detalle.archivo_adjunto}`;
+                      const esPdf = detalle.archivo_adjunto.toLowerCase().endsWith(".pdf");
+                      return (
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-indigo-500" /> Soporte adjunto
+                          </h4>
+                          <div className="bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
+                            {esPdf ? (
+                              <div className="flex items-center gap-4 p-4">
+                                <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+                                  <FileText className="w-6 h-6 text-red-500" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900">Documento PDF</p>
+                                  <p className="text-xs text-gray-400 truncate">{detalle.archivo_adjunto.split("/").pop()}</p>
+                                </div>
+                                <a href={url} target="_blank" rel="noopener noreferrer"
+                                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition">
+                                  Ver PDF
+                                </a>
+                              </div>
+                            ) : (
+                              <div>
+                                <a href={url} target="_blank" rel="noopener noreferrer">
+                                  <img src={url} alt="Soporte de orden" className="w-full max-h-72 object-contain bg-white cursor-pointer hover:opacity-90 transition" />
+                                </a>
+                                <div className="flex items-center justify-between px-4 py-2 border-t border-gray-100">
+                                  <p className="text-xs text-gray-400 truncate">{detalle.archivo_adjunto.split("/").pop()}</p>
+                                  <a href={url} target="_blank" rel="noopener noreferrer"
+                                    className="text-xs text-indigo-600 font-semibold hover:underline">
+                                    Abrir en nueva pestaña
+                                  </a>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* Historial de cambios */}
                     {detalle.historial && detalle.historial.length > 0 && (
                       <div>

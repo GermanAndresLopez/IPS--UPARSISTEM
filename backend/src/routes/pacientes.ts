@@ -182,9 +182,37 @@ router.get("/verificar-documento", async (req: AuthRequest, res: Response): Prom
 // GET /api/pacientes/:id
 router.get("/:id", async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const r = await query(`${PACIENTE_SELECT} WHERE p.id = $1`, [req.params.id]);
+    const [r, histOrdenes] = await Promise.all([
+      query(`${PACIENTE_SELECT} WHERE p.id = $1`, [req.params.id]),
+      query(
+        `SELECT o.id, o.tipo_limite, o.activa,
+                TO_CHAR(o.fecha_inicio, 'YYYY-MM-DD') AS fecha_inicio,
+                TO_CHAR(o.fecha_fin, 'YYYY-MM-DD') AS fecha_fin,
+                o.sesiones_autorizadas, o.sesiones_consumidas,
+                m.nombre AS modalidad_nombre,
+                CASE
+                  WHEN o.activa = false THEN 'INACTIVO'
+                  WHEN o.tipo_limite = 'FECHA' THEN
+                    CASE
+                      WHEN o.fecha_fin IS NULL THEN 'NORMAL'
+                      WHEN (o.fecha_fin - CURRENT_DATE) < -90 THEN 'INACTIVO'
+                      WHEN (o.fecha_fin - CURRENT_DATE) <= 0 THEN 'VENCIDA'
+                      ELSE 'NORMAL'
+                    END
+                  WHEN o.tipo_limite = 'CANTIDAD_TERAPIAS' THEN
+                    CASE WHEN (o.sesiones_autorizadas - o.sesiones_consumidas) <= 0 THEN 'VENCIDA' ELSE 'NORMAL' END
+                  ELSE 'NORMAL'
+                END AS estado,
+                TO_CHAR(o.fecha_registro, 'YYYY-MM-DD') AS fecha_registro
+         FROM ordenes o
+         JOIN modalidades m ON m.id = o.modalidad_id
+         WHERE o.paciente_id = $1
+         ORDER BY o.fecha_registro DESC`,
+        [req.params.id]
+      ),
+    ]);
     if (!r.rows[0]) { res.status(404).json({ error: "Paciente no encontrado" }); return; }
-    res.json(r.rows[0]);
+    res.json({ ...r.rows[0], historial_ordenes: histOrdenes.rows });
   } catch (err) {
     console.error("[pacientes/GET/:id]", err);
     res.status(500).json({ error: "Error al obtener paciente" });

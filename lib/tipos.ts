@@ -133,6 +133,7 @@ export interface Orden {
   terapeuta_inicial_id?: number;
   terapeuta_inicial_nombre: string;
   activa: boolean;
+  archivo_adjunto?: string;
   registrada_por: string;
   fecha_registro: string;
 }

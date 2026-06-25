@@ -10,10 +10,18 @@ import {
 import { ordenesApi, terapeutasApi, modalidadesApi, pacientesApi } from "@/lib/api";
 import { formatFecha, calcularEdad } from "@/lib/utils";
 import { getEstadoConfig } from "@/lib/calculos";
-import type { Terapeuta, Modalidad, Paciente } from "@/lib/tipos";
+import type { Terapeuta, Modalidad, Paciente, EstadoOrden } from "@/lib/tipos";
+import { Hash } from "lucide-react";
 
 interface PacienteBusqueda {
   id: number; nombre_completo: string; documento_identidad: string; tipo_paciente: string;
+}
+
+interface OrdenHistorial {
+  id: number; tipo_limite: string; activa: boolean;
+  fecha_inicio: string; fecha_fin?: string;
+  sesiones_autorizadas?: number; sesiones_consumidas?: number;
+  modalidad_nombre: string; estado: EstadoOrden; fecha_registro: string;
 }
 
 export default function NuevaOrdenPage() {
@@ -111,9 +119,9 @@ export default function NuevaOrdenPage() {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.paciente_id) return;
+  const [mostrarConfirmSinSoporte, setMostrarConfirmSinSoporte] = useState(false);
+
+  const enviarOrden = async () => {
     setError(""); setGuardando(true);
     try {
       const fd = new FormData();
@@ -134,6 +142,16 @@ export default function NuevaOrdenPage() {
       setError(err instanceof Error ? err.message : "Error al guardar");
       setGuardando(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.paciente_id) return;
+    if (!archivo) {
+      setMostrarConfirmSinSoporte(true);
+      return;
+    }
+    enviarOrden();
   };
 
   if (cargando) return (
@@ -295,6 +313,38 @@ export default function NuevaOrdenPage() {
                       <FileText className="w-3 h-3" /> Sin orden activa — puede crear una nueva.
                     </div>
                   )}
+
+                  {/* Historial de órdenes */}
+                  {(() => {
+                    const hist = (pacienteInfo as Paciente & { historial_ordenes?: OrdenHistorial[] }).historial_ordenes;
+                    if (!hist || hist.length === 0) return null;
+                    return (
+                      <div className="pt-2">
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> Historial de órdenes ({hist.length})
+                        </h4>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          {hist.map(h => {
+                            const hCfg = getEstadoConfig(h.estado);
+                            return (
+                              <div key={h.id} className="flex items-center gap-3 px-3 py-2 bg-white border border-gray-100 rounded-lg text-xs">
+                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${hCfg.dot}`} />
+                                <span className="font-semibold text-gray-700">#{h.id}</span>
+                                <span className={`px-1.5 py-0.5 rounded font-semibold ${hCfg.bg} ${hCfg.color}`}>{hCfg.label}</span>
+                                <span className="text-gray-400">{h.modalidad_nombre}</span>
+                                <span className="text-gray-400 ml-auto flex-shrink-0">
+                                  {h.tipo_limite === "FECHA"
+                                    ? <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatFecha(h.fecha_inicio)} → {h.fecha_fin ? formatFecha(h.fecha_fin) : "—"}</span>
+                                    : <span className="flex items-center gap-1"><Hash className="w-3 h-3" />{h.sesiones_consumidas}/{h.sesiones_autorizadas} sesiones</span>
+                                  }
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -443,7 +493,7 @@ export default function NuevaOrdenPage() {
               <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                 <Upload className="w-5 h-5 text-indigo-500" /> Soporte de la Orden
               </h3>
-              <p className="text-xs text-gray-400">Adjunte la imagen o PDF de la autorización emitida por la EPS (opcional).</p>
+              <p className="text-xs text-gray-400">Adjunte la imagen o PDF de la autorización emitida por la EPS (recomendado).</p>
               {!archivo ? (
                 <label htmlFor="archivo-orden"
                   className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 transition group">
@@ -523,6 +573,37 @@ export default function NuevaOrdenPage() {
           </button>
         </div>
       </form>
+
+      {/* Modal de confirmación sin soporte */}
+      {mostrarConfirmSinSoporte && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setMostrarConfirmSinSoporte(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-amber-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Orden sin soporte</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Esta orden se creará sin un documento de soporte que la respalde (imagen o PDF de la autorización).
+              Esto puede dificultar la verificación de la orden en el futuro.
+            </p>
+            <p className="text-sm text-gray-500 font-medium">
+              ¿Está seguro de que desea continuar sin adjuntar un soporte?
+            </p>
+            <div className="flex gap-3 justify-end pt-2">
+              <button onClick={() => setMostrarConfirmSinSoporte(false)}
+                className="px-4 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                Volver y adjuntar
+              </button>
+              <button onClick={() => { setMostrarConfirmSinSoporte(false); enviarOrden(); }}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-semibold transition">
+                Crear sin soporte
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
