@@ -79,7 +79,51 @@ router.get("/:id", async (req: AuthRequest, res: Response): Promise<void> => {
       [req.params.id]
     );
     if (!r.rows[0]) { res.status(404).json({ error: "Ingreso no encontrado" }); return; }
-    res.json(r.rows[0]);
+
+    const ingreso = r.rows[0];
+
+    // Datos del paciente
+    const pacR = await query(
+      `SELECT p.id, p.tipo_documento, p.documento_identidad,
+              TRIM(CONCAT_WS(' ', p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre)) AS nombre_completo,
+              TO_CHAR(p.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
+              p.sexo, p.telefono_1, p.telefono_2, p.correo,
+              p.tipo_paciente, e.nombre AS eps_nombre,
+              d.codigo_cie10, d.descripcion AS diagnostico_nombre
+       FROM pacientes p
+       LEFT JOIN eps e ON e.id = p.eps_id
+       JOIN diagnosticos d ON d.id = p.diagnostico_id
+       WHERE p.id = $1`,
+      [ingreso["paciente_id"]]
+    );
+
+    // Datos de la orden (si existe)
+    let orden = null;
+    if (ingreso["orden_id"]) {
+      const ordR = await query(
+        `SELECT o.id, o.tipo_limite,
+                TO_CHAR(o.fecha_emision, 'YYYY-MM-DD') AS fecha_emision,
+                TO_CHAR(o.fecha_inicio, 'YYYY-MM-DD') AS fecha_inicio,
+                TO_CHAR(o.fecha_fin, 'YYYY-MM-DD') AS fecha_fin,
+                o.sesiones_autorizadas, o.sesiones_consumidas,
+                CASE WHEN o.tipo_limite = 'CANTIDAD_TERAPIAS'
+                  THEN o.sesiones_autorizadas - o.sesiones_consumidas ELSE NULL
+                END AS sesiones_restantes,
+                CASE WHEN o.tipo_limite = 'FECHA' AND o.fecha_fin IS NOT NULL
+                  THEN (o.fecha_fin - CURRENT_DATE)::int ELSE NULL
+                END AS dias_restantes,
+                m.nombre AS modalidad_nombre,
+                COALESCE(t.nombre_completo, 'Sin especificar') AS terapeuta_inicial_nombre
+         FROM ordenes o
+         JOIN modalidades m ON m.id = o.modalidad_id
+         LEFT JOIN terapeutas t ON t.id = o.terapeuta_inicial_id
+         WHERE o.id = $1`,
+        [ingreso["orden_id"]]
+      );
+      orden = ordR.rows[0] || null;
+    }
+
+    res.json({ ...ingreso, paciente: pacR.rows[0] || null, orden });
   } catch (err) {
     console.error("[ingresos/GET/:id]", err);
     res.status(500).json({ error: "Error al obtener ingreso" });
