@@ -9,7 +9,15 @@ import {
 import { pacientesApi, ingresosApi, epsApi, diagnosticosApi } from "@/lib/api";
 import { getEstadoConfig, getCategoriaConfig } from "@/lib/calculos";
 import { formatFecha, formatHora } from "@/lib/utils";
-import type { Paciente, Ingreso, EPS, Diagnostico } from "@/lib/tipos";
+import type { Paciente, Ingreso, EPS, Diagnostico, EstadoOrden } from "@/lib/tipos";
+import { Hash } from "lucide-react";
+
+interface OrdenHistorial {
+  id: number; tipo_limite: string; activa: boolean;
+  fecha_inicio: string; fecha_fin?: string;
+  sesiones_autorizadas?: number; sesiones_consumidas?: number;
+  modalidad_nombre: string; estado: EstadoOrden; fecha_registro: string;
+}
 
 function calcEdad(fn: string) {
   const hoy = new Date(); const nac = new Date(fn);
@@ -537,6 +545,67 @@ export default function PerfilPacientePage({ params }: { params: Promise<{ id: s
           )}
         </div>
       </div>
+
+      {/* ── Historial de órdenes ── */}
+      {(() => {
+        const hist = (paciente as Paciente & { historial_ordenes?: OrdenHistorial[] }).historial_ordenes;
+        if (!hist || hist.length === 0) return null;
+        return (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2 text-sm mb-4">
+              <FileText className="w-4 h-4 text-indigo-500" /> Historial de Órdenes
+              <span className="text-xs text-gray-400 font-normal ml-1">({hist.length})</span>
+            </h3>
+            <div className="space-y-2">
+              {hist.map(h => {
+                const hCfg = getEstadoConfig(h.estado);
+                return (
+                  <Link key={h.id} href={`/dashboard/ordenes?orden=${h.id}`}
+                    className="flex items-center gap-4 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-sm transition group">
+                    <div className="text-center flex-shrink-0 w-12">
+                      <p className="text-xs text-gray-400">Orden</p>
+                      <p className="text-lg font-bold text-gray-900">#{h.id}</p>
+                    </div>
+                    <div className="w-px h-8 bg-gray-200 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${hCfg.bg} ${hCfg.color}`}>
+                          {!h.activa && h.estado !== "INACTIVO" ? "CERRADA" : hCfg.label}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          h.tipo_limite === "FECHA" ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"
+                        }`}>
+                          {h.tipo_limite === "FECHA" ? "Por fecha" : "Por sesiones"}
+                        </span>
+                        <span className="text-xs text-gray-400">{h.modalidad_nombre}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                        {h.tipo_limite === "FECHA" ? (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-gray-400" />
+                            {formatFecha(h.fecha_inicio)} → {h.fecha_fin ? formatFecha(h.fecha_fin) : "—"}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <Hash className="w-3 h-3 text-gray-400" />
+                            {h.sesiones_consumidas}/{h.sesiones_autorizadas} sesiones
+                          </span>
+                        )}
+                        <span className="text-gray-300">·</span>
+                        <span>Creada: {formatFecha(h.fecha_registro)}</span>
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0 text-gray-300 group-hover:text-indigo-400 transition">
+                      <AlertTriangle className="w-4 h-4 hidden" />
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Historial de ingresos ── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
