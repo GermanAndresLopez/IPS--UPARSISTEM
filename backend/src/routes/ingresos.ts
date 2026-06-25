@@ -132,11 +132,11 @@ router.post(
           );
         }
 
-        // Incrementar sesiones_consumidas si hay orden
+        // Incrementar sesiones_consumidas si hay orden (cada terapia = 1 sesión)
         if (orden_id) {
           await txQuery(
-            "UPDATE ordenes SET sesiones_consumidas = sesiones_consumidas + 1 WHERE id = $1",
-            [orden_id]
+            "UPDATE ordenes SET sesiones_consumidas = sesiones_consumidas + $1 WHERE id = $2",
+            [terapias.length, orden_id]
           );
         }
 
@@ -174,20 +174,23 @@ router.delete(
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       await withTransaction(async (txQuery) => {
-        // Obtener orden_id para revertir sesiones
+        // Obtener orden_id y cantidad de terapias para revertir sesiones
         const ir = await txQuery("SELECT orden_id FROM ingresos WHERE id=$1", [req.params.id]);
         if (!ir.rows[0]) throw new Error("not_found");
         const ordenId = ir.rows[0]["orden_id"];
+
+        const tc = await txQuery("SELECT COUNT(*)::int AS cnt FROM ingresos_terapias WHERE ingreso_id=$1", [req.params.id]);
+        const numTerapias = tc.rows[0]["cnt"] as number;
 
         // Eliminar terapias (CASCADE, pero explícito para legibilidad)
         await txQuery("DELETE FROM ingresos_terapias WHERE ingreso_id=$1", [req.params.id]);
         await txQuery("DELETE FROM ingresos WHERE id=$1", [req.params.id]);
 
-        // Revertir sesión consumida
-        if (ordenId) {
+        // Revertir sesiones consumidas (cada terapia = 1 sesión)
+        if (ordenId && numTerapias > 0) {
           await txQuery(
-            "UPDATE ordenes SET sesiones_consumidas = GREATEST(sesiones_consumidas - 1, 0) WHERE id=$1",
-            [ordenId]
+            "UPDATE ordenes SET sesiones_consumidas = GREATEST(sesiones_consumidas - $1, 0) WHERE id=$2",
+            [numTerapias, ordenId]
           );
         }
 
