@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -6,21 +7,22 @@ import {
   Bell, BarChart2, Shield, Settings, Heart, LogOut, ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { alertasApi } from "@/lib/api";
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
   roles: string[];
-  badge?: number;
+  badgeKey?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard",               label: "Dashboard",      icon: <LayoutDashboard className="w-5 h-5" />, roles: ["ADMIN","COORDINADOR","OPERATIVO"] },
-   { href: "/dashboard/ingresos",      label: "Ingresos",       icon: <ClipboardList className="w-5 h-5" />,  roles: ["ADMIN","COORDINADOR","OPERATIVO"] },
+  { href: "/dashboard/ingresos",      label: "Ingresos",       icon: <ClipboardList className="w-5 h-5" />,  roles: ["ADMIN","COORDINADOR","OPERATIVO"] },
   { href: "/dashboard/ordenes",       label: "Órdenes",        icon: <FileText className="w-5 h-5" />,       roles: ["ADMIN","COORDINADOR"] },
   { href: "/dashboard/pacientes",     label: "Pacientes",      icon: <Users className="w-5 h-5" />,          roles: ["ADMIN","COORDINADOR","OPERATIVO"] },
-  { href: "/dashboard/alertas",       label: "Alertas",        icon: <Bell className="w-5 h-5" />,           roles: ["ADMIN","COORDINADOR"], badge: 4 },
+  { href: "/dashboard/alertas",       label: "Alertas",        icon: <Bell className="w-5 h-5" />,           roles: ["ADMIN","COORDINADOR"], badgeKey: "alertas" },
   { href: "/dashboard/reportes",      label: "Reportes",       icon: <BarChart2 className="w-5 h-5" />,      roles: ["ADMIN"] },
   { href: "/dashboard/auditoria",     label: "Auditoría",      icon: <Shield className="w-5 h-5" />,         roles: ["ADMIN"] },
   { href: "/dashboard/configuracion", label: "Configuración",  icon: <Settings className="w-5 h-5" />,       roles: ["ADMIN"] },
@@ -33,6 +35,13 @@ interface SidebarProps {
 
 export function Sidebar({ userRol, userName }: SidebarProps) {
   const pathname = usePathname();
+  const [alertCount, setAlertCount] = useState(0);
+
+  useEffect(() => {
+    alertasApi.count()
+      .then(r => setAlertCount(r.count))
+      .catch(() => {});
+  }, [pathname]);
 
   const visibleItems = NAV_ITEMS.filter(item => item.roles.includes(userRol));
 
@@ -72,6 +81,8 @@ export function Sidebar({ userRol, userName }: SidebarProps) {
             ? pathname === "/dashboard"
             : pathname.startsWith(item.href);
 
+          const badge = item.badgeKey === "alertas" && alertCount > 0 ? alertCount : undefined;
+
           return (
             <Link
               key={item.href}
@@ -87,9 +98,9 @@ export function Sidebar({ userRol, userName }: SidebarProps) {
                 {item.icon}
               </span>
               <span className="flex-1">{item.label}</span>
-              {item.badge && !isActive && (
+              {badge && !isActive && (
                 <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                  {item.badge}
+                  {badge}
                 </span>
               )}
               {isActive && <ChevronRight className="w-4 h-4 text-white/70" />}

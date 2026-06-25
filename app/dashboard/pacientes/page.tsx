@@ -1,7 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Search, Plus, Phone, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
+import { Search, Plus, Phone, ChevronRight, ChevronLeft, Loader2, AlertTriangle } from "lucide-react";
 import { pacientesApi } from "@/lib/api";
 import { getEstadoConfig, getCategoriaConfig } from "@/lib/calculos";
 import { formatFecha } from "@/lib/utils";
@@ -23,6 +23,8 @@ const CATEGORIAS = [
   { value: "ANTIGUO", label: "Antiguos" },
 ];
 
+const PAGE_SIZE = 10;
+
 export default function PacientesPage() {
   const [pacientes, setPacientes]    = useState<Paciente[]>([]);
   const [loading,   setLoading]      = useState(true);
@@ -31,21 +33,40 @@ export default function PacientesPage() {
   const [filtroCategoria, setFiltro] = useState("TODOS");
   const [rol,       setRol]          = useState("");
 
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("terapia_user") || "{}");
-    setRol(user.rol ?? "");
-    pacientesApi.getAll()
-      .then(data => setPacientes(data as Paciente[]))
+  const [page,       setPage]       = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total,      setTotal]      = useState(0);
+
+  const cargar = useCallback((p: number, search: string, categoria: string) => {
+    setLoading(true);
+    pacientesApi.getAll({ page: p, limit: PAGE_SIZE, search, categoria })
+      .then(res => {
+        setPacientes(res.data as Paciente[]);
+        setTotalPages(res.totalPages);
+        setTotal(res.total);
+        setPage(res.page);
+      })
       .catch(err => setError((err as Error).message))
       .finally(() => setLoading(false));
   }, []);
 
-  const pacientesFiltrados = pacientes.filter(p => {
-    const matchB = p.nombre_completo.toLowerCase().includes(busqueda.toLowerCase()) ||
-                   p.documento_identidad.includes(busqueda);
-    const matchC = filtroCategoria === "TODOS" || p.categoria === filtroCategoria;
-    return matchB && matchC;
-  });
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("terapia_user") || "{}");
+    setRol(user.rol ?? "");
+    cargar(1, "", "TODOS");
+  }, [cargar]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setPage(1);
+      cargar(1, busqueda, filtroCategoria);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [busqueda, filtroCategoria, cargar]);
+
+  const cambiarPagina = (p: number) => {
+    cargar(p, busqueda, filtroCategoria);
+  };
 
   return (
     <div className="p-6 space-y-5 max-w-7xl mx-auto">
@@ -53,7 +74,7 @@ export default function PacientesPage() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Pacientes</h2>
           <p className="text-gray-500 text-sm mt-1">
-            {loading ? "Cargando..." : `${pacientes.length} pacientes registrados`}
+            {loading ? "Cargando..." : `${total} pacientes registrados`}
           </p>
         </div>
         {rol !== "OPERATIVO" && (
@@ -94,99 +115,150 @@ export default function PacientesPage() {
           <AlertTriangle className="w-8 h-8 mx-auto mb-2" />{error}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Paciente</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">EPS / Tipo</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Diagnóstico</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado Orden</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Categoría</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Último Ingreso</th>
-                  <th className="px-5 py-3.5" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {pacientesFiltrados.map(p => {
-                  const estadoConfig = p.orden_activa ? getEstadoConfig(p.orden_activa.estado) : null;
-                  const catConfig    = getCategoriaConfig(p.categoria);
-                  const edad         = calcularEdad(p.fecha_nacimiento);
+        <>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Paciente</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">EPS / Tipo</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Diagnóstico</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Estado Orden</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Categoría</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Último Ingreso</th>
+                    <th className="px-5 py-3.5" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {pacientes.map(p => {
+                    const estadoConfig = p.orden_activa ? getEstadoConfig(p.orden_activa.estado) : null;
+                    const catConfig    = getCategoriaConfig(p.categoria);
+                    const edad         = calcularEdad(p.fecha_nacimiento);
 
-                  return (
-                    <tr key={p.id} className={`hover:bg-gray-50/50 transition ${!p.activo ? "opacity-50" : ""}`}>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0">
-                            {[p.primer_apellido, p.primer_nombre].map(s => s?.[0] ?? "").join("").toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-gray-900">{p.nombre_completo}</p>
-                              {!p.activo && (
-                                <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-medium">Inactivo</span>
+                    return (
+                      <tr key={p.id} className={`hover:bg-gray-50/50 transition ${!p.activo ? "opacity-50" : ""}`}>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold flex-shrink-0">
+                              {[p.primer_apellido, p.primer_nombre].map(s => s?.[0] ?? "").join("").toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-gray-900">{p.nombre_completo}</p>
+                                {!p.activo && (
+                                  <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-medium">Inactivo</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-400">{p.documento_identidad} · {edad} años · {p.sexo === "MASCULINO" ? "M" : "F"}</p>
+                              {p.telefono_1 && (
+                                <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                                  <Phone className="w-3 h-3" />{p.telefono_1}
+                                </p>
                               )}
                             </div>
-                            <p className="text-xs text-gray-400">{p.documento_identidad} · {edad} años · {p.sexo === "MASCULINO" ? "M" : "F"}</p>
-                            {p.telefono_1 && (
-                              <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                                <Phone className="w-3 h-3" />{p.telefono_1}
-                              </p>
-                            )}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <p className="text-sm text-gray-700">{p.eps_nombre || "—"}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          p.tipo_paciente === "PARTICULAR" ? "bg-purple-50 text-purple-700" : "bg-blue-50 text-blue-700"
-                        }`}>{p.tipo_paciente}</span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <p className="text-xs font-semibold text-gray-500">{p.codigo_cie10}</p>
-                        <p className="text-xs text-gray-600 max-w-[160px] leading-tight mt-0.5">{p.diagnostico_nombre}</p>
-                      </td>
-                      <td className="px-5 py-4">
-                        {estadoConfig ? (
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${estadoConfig.dot}`} />
-                            <span className={`text-xs font-semibold px-2 py-1 rounded-lg ${estadoConfig.bg} ${estadoConfig.color}`}>
-                              {estadoConfig.label}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-400">Sin orden</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`text-xs font-semibold px-2 py-1 rounded-lg ${catConfig.bg} ${catConfig.color}`}>
-                          {catConfig.label}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <p className="text-xs text-gray-500">
-                          {p.ultimo_ingreso ? formatFecha(p.ultimo_ingreso) : "Sin ingresos"}
-                        </p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <Link href={`/dashboard/pacientes/${p.id}`}
-                          className="p-1.5 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition inline-flex">
-                          <ChevronRight className="w-4 h-4" />
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {pacientesFiltrados.length === 0 && (
-              <div className="text-center py-12 text-gray-400 text-sm">
-                No se encontraron pacientes con esos filtros.
-              </div>
-            )}
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="text-sm text-gray-700">{p.eps_nombre || "—"}</p>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            p.tipo_paciente === "PARTICULAR" ? "bg-purple-50 text-purple-700" : "bg-blue-50 text-blue-700"
+                          }`}>{p.tipo_paciente}</span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="text-xs font-semibold text-gray-500">{p.codigo_cie10}</p>
+                          <p className="text-xs text-gray-600 max-w-[160px] leading-tight mt-0.5">{p.diagnostico_nombre}</p>
+                        </td>
+                        <td className="px-5 py-4">
+                          {estadoConfig ? (
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${estadoConfig.dot}`} />
+                              <span className={`text-xs font-semibold px-2 py-1 rounded-lg ${estadoConfig.bg} ${estadoConfig.color}`}>
+                                {estadoConfig.label}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">Sin orden</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`text-xs font-semibold px-2 py-1 rounded-lg ${catConfig.bg} ${catConfig.color}`}>
+                            {catConfig.label}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="text-xs text-gray-500">
+                            {p.ultimo_ingreso ? formatFecha(p.ultimo_ingreso) : "Sin ingresos"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <Link href={`/dashboard/pacientes/${p.id}`}
+                            className="p-1.5 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition inline-flex">
+                            <ChevronRight className="w-4 h-4" />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {pacientes.length === 0 && (
+                <div className="text-center py-12 text-gray-400 text-sm">
+                  No se encontraron pacientes con esos filtros.
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-sm text-gray-500">
+                Página {page} de {totalPages} · {total} pacientes
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => cambiarPagina(page - 1)}
+                  disabled={page <= 1}
+                  className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .reduce<(number | "...")[]>((acc, p, i, arr) => {
+                    if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("...");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === "..." ? (
+                      <span key={`dots-${i}`} className="px-2 text-gray-400 text-sm">...</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => cambiarPagina(p as number)}
+                        className={`w-9 h-9 rounded-xl text-sm font-medium transition ${
+                          p === page
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                <button
+                  onClick={() => cambiarPagina(page + 1)}
+                  disabled={page >= totalPages}
+                  className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

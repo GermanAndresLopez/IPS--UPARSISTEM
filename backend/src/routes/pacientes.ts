@@ -100,10 +100,30 @@ const PACIENTE_SELECT = `
 `;
 
 // GET /api/pacientes
-router.get("/", async (_req: AuthRequest, res: Response): Promise<void> => {
+router.get("/", async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const r = await query(`${PACIENTE_SELECT} ORDER BY p.primer_apellido, p.primer_nombre`);
-    res.json(r.rows);
+    const page      = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit     = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
+    const search    = ((req.query.search as string) || "").trim();
+    const categoria = ((req.query.categoria as string) || "TODOS").trim();
+    const offset    = (page - 1) * limit;
+
+    const r = await query(
+      `WITH pacientes_calc AS (${PACIENTE_SELECT})
+       SELECT *, COUNT(*) OVER() AS total_count
+       FROM pacientes_calc
+       WHERE ($1 = '' OR LOWER(nombre_completo) LIKE '%' || LOWER($1) || '%'
+                      OR documento_identidad LIKE '%' || $1 || '%')
+         AND ($2 = 'TODOS' OR categoria = $2)
+       ORDER BY nombre_completo
+       LIMIT $3 OFFSET $4`,
+      [search, categoria, limit, offset]
+    );
+
+    const total = r.rows.length > 0 ? parseInt(String(r.rows[0]["total_count"])) : 0;
+    const data  = r.rows.map(({ total_count, ...rest }) => rest);
+
+    res.json({ data, total, page, totalPages: Math.ceil(total / limit) });
   } catch (err) {
     console.error("[pacientes/GET]", err);
     res.status(500).json({ error: "Error al obtener pacientes" });

@@ -69,8 +69,21 @@ export const authApi = {
 };
 
 // ─── PACIENTES ────────────────────────────────────────────────────────────────
+export interface PacientesPaginados {
+  data: unknown[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
 export const pacientesApi = {
-  getAll: () => apiFetch<unknown[]>("/pacientes"),
+  getAll: (params?: { page?: number; limit?: number; search?: string; categoria?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.page)      qs.set("page",      String(params.page));
+    if (params?.limit)     qs.set("limit",     String(params.limit));
+    if (params?.search)    qs.set("search",    params.search);
+    if (params?.categoria && params.categoria !== "TODOS") qs.set("categoria", params.categoria);
+    return apiFetch<PacientesPaginados>(`/pacientes${qs.toString() ? "?" + qs : ""}`);
+  },
   getById: (id: number) => apiFetch<unknown>(`/pacientes/${id}`),
   buscar: (q: string) => apiFetch<unknown[]>(`/pacientes/buscar?q=${encodeURIComponent(q)}`),
   verificarDocumento: (documento: string, excluirId?: number) => {
@@ -129,6 +142,7 @@ export const ingresosApi = {
 // ─── ALERTAS ──────────────────────────────────────────────────────────────────
 export const alertasApi = {
   getAll: () => apiFetch<unknown[]>("/alertas"),
+  count: () => apiFetch<{ count: number }>("/alertas/count"),
 };
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────

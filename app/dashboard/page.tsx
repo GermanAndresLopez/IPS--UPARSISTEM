@@ -202,11 +202,19 @@ export default function DashboardPage() {
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <h3 className="font-semibold text-gray-900 mb-4">Distribución por Diagnóstico</h3>
           {graficas.por_diagnostico.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={graficas.por_diagnostico} layout="vertical" barSize={14}>
+            <ResponsiveContainer width="100%" height={Math.max(220, graficas.por_diagnostico.length * 40 + 40)}>
+              <BarChart data={graficas.por_diagnostico} layout="vertical" barSize={14} margin={{ left: 10, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={160} axisLine={false} tickLine={false} />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  tick={{ fontSize: 10, width: 200 }}
+                  width={200}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: string) => v.length > 30 ? v.slice(0, 28) + "…" : v}
+                />
                 <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: 12 }} />
                 <Bar dataKey="value" fill="#6366f1" radius={[0,6,6,0]} name="Pacientes" />
               </BarChart>

@@ -8,6 +8,42 @@ import { authenticate, AuthRequest } from "../middleware/auth";
 const router = Router();
 router.use(authenticate);
 
+router.get("/count", async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const r = await query(`
+      SELECT (
+        (SELECT COUNT(*) FROM ordenes o
+         WHERE o.activa = true AND o.tipo_limite = 'FECHA'
+           AND o.fecha_fin IS NOT NULL
+           AND (o.fecha_fin - CURRENT_DATE) > 0
+           AND (o.fecha_fin - CURRENT_DATE) < 15)
+        +
+        (SELECT COUNT(*) FROM ordenes o
+         WHERE o.activa = true AND o.tipo_limite = 'CANTIDAD_TERAPIAS'
+           AND (o.sesiones_autorizadas - o.sesiones_consumidas) > 0
+           AND (o.sesiones_autorizadas - o.sesiones_consumidas) <= 5)
+        +
+        (SELECT COUNT(*) FROM (
+           SELECT p.id
+           FROM pacientes p
+           JOIN ordenes o ON o.paciente_id = p.id AND o.activa = true
+           LEFT JOIN ingresos i ON i.paciente_id = p.id
+           WHERE (
+             (o.tipo_limite = 'FECHA' AND o.fecha_fin > CURRENT_DATE)
+             OR (o.tipo_limite = 'CANTIDAD_TERAPIAS' AND (o.sesiones_autorizadas - o.sesiones_consumidas) > 0)
+           )
+           GROUP BY p.id, o.id
+           HAVING MAX(i.fecha) IS NULL OR (CURRENT_DATE - MAX(i.fecha)) > 30
+         ) sub)
+      ) AS total
+    `);
+    res.json({ count: parseInt(String(r.rows[0]["total"])) });
+  } catch (err) {
+    console.error("[alertas/count]", err);
+    res.status(500).json({ error: "Error al contar alertas" });
+  }
+});
+
 router.get("/", async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const alertas: Record<string, unknown>[] = [];
