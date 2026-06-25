@@ -85,7 +85,7 @@ router.get("/", async (req: AuthRequest, res: Response): Promise<void> => {
       `WITH ordenes_calc AS (${ORDEN_SELECT})
        SELECT *, COUNT(*) OVER() AS total_count
        FROM ordenes_calc
-       WHERE ($1 = '' OR LOWER(paciente_nombre) LIKE '%' || LOWER($1) || '%')
+       WHERE ($1 = '' OR LOWER(paciente_nombre) LIKE '%' || LOWER($1) || '%' OR id::text = $1)
          AND ($2 = 'TODOS' OR estado = $2)
        ORDER BY paciente_nombre
        LIMIT $3 OFFSET $4`,

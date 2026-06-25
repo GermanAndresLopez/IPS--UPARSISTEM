@@ -48,7 +48,7 @@ export default function NuevoIngresoPage() {
 
   const [tipoIngreso, setTipoIngreso] = useState("");
   const [hora,        setHora]        = useState("09:00");
-  const [terapias,    setTerapias]    = useState<TerapiaLine[]>([{ tipo: "Fonoaudiología", terapeuta_id: "" }]);
+  const [terapias,    setTerapias]    = useState<TerapiaLine[]>([{ tipo: "Fonoaudiología", terapeuta_id: "0" }]);
   const [obs,         setObs]         = useState("");
   const [guardando,   setGuardando]   = useState(false);
   const [error,       setError]       = useState("");
@@ -64,6 +64,8 @@ export default function NuevoIngresoPage() {
   const ordenBloqueada     = orden && ["VENCIDA","INACTIVO"].includes(orden.estado);
   const esSinOrden         = paciente?.tipo_paciente === "PARTICULAR";
   const sinOrdenRequerida  = !!paciente && !esSinOrden && !orden;
+  const sesionesRestantes  = orden?.tipo_limite === "CANTIDAD_TERAPIAS" && orden.sesiones_restantes != null ? orden.sesiones_restantes : null;
+  const excedeSesiones     = sesionesRestantes !== null && terapias.length > sesionesRestantes;
 
   const handleBusqueda = useCallback(async (valor: string) => {
     setBusqueda(valor);
@@ -93,11 +95,11 @@ export default function NuevoIngresoPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const addTerapia    = () => setTerapias(prev => [...prev, { tipo: TIPOS_TERAPIA[0], terapeuta_id: "" }]);
+  const addTerapia    = () => setTerapias(prev => [...prev, { tipo: TIPOS_TERAPIA[0], terapeuta_id: "0" }]);
   const removeTerapia = (i: number) => setTerapias(prev => prev.filter((_, idx) => idx !== i));
   const updateTerapia = (i: number, key: keyof TerapiaLine, val: string) =>
     setTerapias(prev => prev.map((t, idx) =>
-      idx === i ? { ...t, [key]: val, ...(key === "tipo" ? { terapeuta_id: "" } : {}) } : t
+      idx === i ? { ...t, [key]: val, ...(key === "tipo" ? { terapeuta_id: "0" } : {}) } : t
     ));
 
   const getTerapeutasPorTipo = (tipo: string) => {
@@ -333,10 +335,19 @@ export default function NuevoIngresoPage() {
               );
             })}
           </div>
-          <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 p-3 rounded-xl">
-            <span>ℹ️</span>
-            <span>Cada terapia descuenta 1 sesión de la orden — <strong>{terapias.length} sesión{terapias.length > 1 ? "es" : ""} hoy</strong></span>
-          </div>
+          {excedeSesiones ? (
+            <div className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 p-3 rounded-xl font-medium">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <span>La orden solo tiene <strong>{sesionesRestantes} sesión(es)</strong> disponible(s). Está intentando registrar <strong>{terapias.length}</strong>. Elimine terapias o amplíe la orden.</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 p-3 rounded-xl">
+              <span>ℹ️</span>
+              <span>Cada terapia descuenta 1 sesión de la orden — <strong>{terapias.length} sesión{terapias.length > 1 ? "es" : ""} hoy</strong>
+                {sesionesRestantes !== null && <> · {sesionesRestantes} disponible(s)</>}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* PASO 4: Observaciones */}
@@ -357,7 +368,7 @@ export default function NuevoIngresoPage() {
             Cancelar
           </Link>
           <button type="submit"
-            disabled={guardando || !paciente || sinOrdenRequerida || (!!ordenBloqueada && !esSinOrden)}
+            disabled={guardando || !paciente || sinOrdenRequerida || (!!ordenBloqueada && !esSinOrden) || excedeSesiones}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed">
             {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {guardando ? "Guardando..." : "Registrar Ingreso"}

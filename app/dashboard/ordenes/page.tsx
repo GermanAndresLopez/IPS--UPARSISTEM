@@ -184,7 +184,7 @@ export default function OrdenesPage() {
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
-            placeholder="Buscar por paciente..."
+            placeholder="Buscar por paciente o # de orden..."
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" />
         </div>
         <select value={filtroEstado} onChange={e => setFiltro(e.target.value)}

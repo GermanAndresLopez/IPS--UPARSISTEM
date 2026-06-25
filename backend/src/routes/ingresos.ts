@@ -185,6 +185,10 @@ router.post(
             res.status(400).json({ error: "La orden no tiene sesiones disponibles." });
             return;
           }
+          if (terapias.length > restantes) {
+            res.status(400).json({ error: `La orden solo tiene ${restantes} sesión(es) disponible(s), pero se intentan registrar ${terapias.length} terapia(s).` });
+            return;
+          }
         }
         if (ord["tipo_limite"] === "FECHA" && ord["dias_restantes"] != null && Number(ord["dias_restantes"]) < 0) {
           res.status(400).json({ error: "La orden está vencida por fecha." });
