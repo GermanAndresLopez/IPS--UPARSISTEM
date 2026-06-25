@@ -108,17 +108,43 @@ router.get("/:id", async (req: AuthRequest, res: Response): Promise<void> => {
     const r = await query(`${ORDEN_SELECT} WHERE o.id = $1`, [req.params.id]);
     if (!r.rows[0]) { res.status(404).json({ error: "Orden no encontrada" }); return; }
 
-    // Historial
-    const hist = await query(
-      `SELECT h.*, u.nombre_completo AS modificado_por,
-              TO_CHAR(h.fecha_cambio, 'YYYY-MM-DD"T"HH24:MI:SS') AS fecha_cambio
-       FROM historial_ordenes h
-       LEFT JOIN usuarios u ON u.id = h.modificado_por_id
-       WHERE h.orden_id = $1 ORDER BY h.fecha_cambio DESC`,
-      [req.params.id]
-    );
+    const orden = r.rows[0];
 
-    res.json({ ...r.rows[0], historial: hist.rows });
+    const [hist, pacR, ingR] = await Promise.all([
+      query(
+        `SELECT h.*, u.nombre_completo AS modificado_por,
+                TO_CHAR(h.fecha_cambio, 'YYYY-MM-DD"T"HH24:MI:SS') AS fecha_cambio
+         FROM historial_ordenes h
+         LEFT JOIN usuarios u ON u.id = h.modificado_por_id
+         WHERE h.orden_id = $1 ORDER BY h.fecha_cambio DESC`,
+        [req.params.id]
+      ),
+      query(
+        `SELECT p.id, p.tipo_documento, p.documento_identidad,
+                TRIM(CONCAT_WS(' ', p.primer_apellido, p.segundo_apellido, p.primer_nombre, p.segundo_nombre)) AS nombre_completo,
+                TO_CHAR(p.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
+                p.sexo, p.telefono_1, p.correo, p.tipo_paciente,
+                e.nombre AS eps_nombre,
+                d.codigo_cie10, d.descripcion AS diagnostico_nombre
+         FROM pacientes p
+         LEFT JOIN eps e ON e.id = p.eps_id
+         JOIN diagnosticos d ON d.id = p.diagnostico_id
+         WHERE p.id = $1`,
+        [orden["paciente_id"]]
+      ),
+      query(
+        `SELECT COUNT(*)::int AS total_ingresos
+         FROM ingresos WHERE orden_id = $1`,
+        [req.params.id]
+      ),
+    ]);
+
+    res.json({
+      ...orden,
+      historial: hist.rows,
+      paciente: pacR.rows[0] || null,
+      total_ingresos: ingR.rows[0]?.["total_ingresos"] ?? 0,
+    });
   } catch (err) {
     console.error("[ordenes/GET/:id]", err);
     res.status(500).json({ error: "Error al obtener orden" });

@@ -1,14 +1,27 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Plus, Search, Calendar, Hash, ChevronRight, ChevronLeft, AlertTriangle, Loader2, Pencil, X, Check, Ban } from "lucide-react";
+import {
+  Plus, Search, Calendar, Hash, ChevronRight, ChevronLeft, AlertTriangle,
+  Loader2, Pencil, X, Check, Ban, User, Phone, Mail, FileText, Clock,
+} from "lucide-react";
 import { ordenesApi } from "@/lib/api";
 import { getEstadoConfig, requiereAlerta, requiereAlertaSesiones } from "@/lib/calculos";
-import { formatFecha } from "@/lib/utils";
-import type { Orden } from "@/lib/tipos";
+import { formatFecha, formatTimestamp, calcularEdad } from "@/lib/utils";
+import type { Orden, HistorialOrden } from "@/lib/tipos";
 
 type OrdenExtendida = Orden & { paciente_nombre?: string; eps_nombre?: string };
 type TipoCambio = "EXTENSION_FECHA" | "AMPLIACION_SESIONES" | "AJUSTE_CONSUMIDAS" | "CIERRE";
+
+interface OrdenDetalle extends OrdenExtendida {
+  historial: HistorialOrden[];
+  paciente?: {
+    id: number; nombre_completo: string; tipo_documento: string; documento_identidad: string;
+    fecha_nacimiento: string; sexo: string; telefono_1: string; correo?: string;
+    tipo_paciente: string; eps_nombre?: string; codigo_cie10: string; diagnostico_nombre: string;
+  };
+  total_ingresos: number;
+}
 
 const ESTADOS = ["TODOS", "NORMAL", "VENCIDA", "INACTIVO"];
 const PAGE_SIZE = 10;
@@ -18,6 +31,20 @@ interface EditForm {
   valor_nuevo: string;
   motivo: string;
 }
+
+const LABELS_CAMBIO: Record<string, string> = {
+  EXTENSION_FECHA: "Ampliar fecha de finalización",
+  AMPLIACION_SESIONES: "Ampliar sesiones autorizadas",
+  AJUSTE_CONSUMIDAS: "Registrar sesiones no contabilizadas",
+  CIERRE: "Vencer / Cerrar orden",
+};
+
+const LABELS_HISTORIAL: Record<string, string> = {
+  EXTENSION_FECHA: "Extensión de fecha",
+  AMPLIACION_SESIONES: "Ampliación de sesiones",
+  AJUSTE_CONSUMIDAS: "Ajuste de consumidas",
+  CIERRE: "Cierre de orden",
+};
 
 export default function OrdenesPage() {
   const [ordenes,      setOrdenes]      = useState<OrdenExtendida[]>([]);
@@ -35,6 +62,9 @@ export default function OrdenesPage() {
   const [editForm,   setEditForm]   = useState<EditForm>({ tipo_cambio: "EXTENSION_FECHA", valor_nuevo: "", motivo: "" });
   const [guardando,  setGuardando]  = useState(false);
   const [editError,  setEditError]  = useState("");
+
+  const [detalle,        setDetalle]        = useState<OrdenDetalle | null>(null);
+  const [detalleLoading, setDetalleLoading] = useState(false);
 
   const cargar = useCallback((p: number, search: string, estado: string) => {
     setLoading(true);
@@ -71,6 +101,19 @@ export default function OrdenesPage() {
 
   const cambiarPagina = (p: number) => {
     cargar(p, busqueda, filtroEstado);
+  };
+
+  const abrirDetalle = async (id: number) => {
+    setDetalleLoading(true);
+    setDetalle(null);
+    try {
+      const data = await ordenesApi.getById(id) as OrdenDetalle;
+      setDetalle(data);
+    } catch {
+      setDetalle(null);
+    } finally {
+      setDetalleLoading(false);
+    }
   };
 
   const abrirEditar = (o: OrdenExtendida) => {
@@ -111,13 +154,6 @@ export default function OrdenesPage() {
   };
 
   const puedeEditar = rol === "ADMIN" || rol === "COORDINADOR";
-
-  const LABELS_CAMBIO: Record<string, string> = {
-    EXTENSION_FECHA: "Ampliar fecha de finalización",
-    AMPLIACION_SESIONES: "Ampliar sesiones autorizadas",
-    AJUSTE_CONSUMIDAS: "Registrar sesiones no contabilizadas",
-    CIERRE: "Vencer / Cerrar orden",
-  };
 
   return (
     <div className="p-6 space-y-5 max-w-7xl mx-auto">
@@ -173,10 +209,10 @@ export default function OrdenesPage() {
                 : [];
 
               return (
-                <div key={o.id} className={`bg-white rounded-2xl border shadow-sm transition ${
-                  !esActiva ? "opacity-60 border-gray-200" : tieneAlerta ? "border-amber-200" : "border-gray-100"
+                <div key={o.id} className={`bg-white rounded-2xl border shadow-sm transition cursor-pointer hover:shadow-md ${
+                  !esActiva ? "opacity-60 border-gray-200 hover:opacity-80" : tieneAlerta ? "border-amber-200 hover:border-amber-300" : "border-gray-100 hover:border-indigo-200"
                 }`}>
-                  <div className="p-5 flex items-center gap-5">
+                  <div className="p-5 flex items-center gap-5" onClick={() => abrirDetalle(o.id)}>
                     <div className={`w-1 h-16 rounded-full flex-shrink-0 ${!esActiva ? "bg-gray-300" : tieneAlerta ? "bg-amber-400" : cfg.dot}`} />
 
                     <div className="flex-1 min-w-0">
@@ -237,7 +273,7 @@ export default function OrdenesPage() {
 
                     {puedeEditar && esActiva && (
                       <button
-                        onClick={() => esEditando ? setEditingId(null) : abrirEditar(o)}
+                        onClick={e => { e.stopPropagation(); esEditando ? setEditingId(null) : abrirEditar(o); }}
                         className={`p-2 rounded-xl transition flex-shrink-0 ${
                           esEditando
                             ? "bg-gray-100 text-gray-600"
@@ -251,7 +287,7 @@ export default function OrdenesPage() {
                   </div>
 
                   {esEditando && (
-                    <div className="border-t border-gray-100 px-6 py-4 bg-gray-50 rounded-b-2xl space-y-3">
+                    <div className="border-t border-gray-100 px-6 py-4 bg-gray-50 rounded-b-2xl space-y-3" onClick={e => e.stopPropagation()}>
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Editar orden #{o.id}</p>
 
                       <div className="flex gap-4 flex-wrap">
@@ -276,23 +312,18 @@ export default function OrdenesPage() {
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">Motivo del cierre</label>
-                            <input
-                              type="text"
-                              value={editForm.motivo}
+                            <input type="text" value={editForm.motivo}
                               onChange={e => setEditForm(f => ({ ...f, motivo: e.target.value }))}
                               placeholder="Ej: Orden vencida, paciente dado de alta, cambio de EPS..."
-                              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                            />
+                              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
                           </div>
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1">
-                              {editForm.tipo_cambio === "EXTENSION_FECHA"
-                                ? "Nueva fecha de vencimiento"
-                                : editForm.tipo_cambio === "AMPLIACION_SESIONES"
-                                ? "Sesiones adicionales a autorizar"
+                              {editForm.tipo_cambio === "EXTENSION_FECHA" ? "Nueva fecha de vencimiento"
+                                : editForm.tipo_cambio === "AMPLIACION_SESIONES" ? "Sesiones adicionales a autorizar"
                                 : "Sesiones no registradas a agregar"}
                             </label>
                             <input
@@ -300,26 +331,19 @@ export default function OrdenesPage() {
                               min={editForm.tipo_cambio !== "EXTENSION_FECHA" ? "1" : undefined}
                               value={editForm.valor_nuevo}
                               onChange={e => setEditForm(f => ({ ...f, valor_nuevo: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
+                              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                           </div>
-
                           <div className="sm:col-span-2">
                             <label className="block text-xs font-medium text-gray-600 mb-1">Motivo del cambio</label>
-                            <input
-                              type="text"
-                              value={editForm.motivo}
+                            <input type="text" value={editForm.motivo}
                               onChange={e => setEditForm(f => ({ ...f, motivo: e.target.value }))}
                               placeholder="Ej: Ampliación autorizada por médico tratante"
-                              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
+                              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                           </div>
                         </div>
                       )}
 
-                      {editError && (
-                        <p className="text-xs text-red-600">{editError}</p>
-                      )}
+                      {editError && <p className="text-xs text-red-600">{editError}</p>}
 
                       <div className="flex gap-2 justify-end">
                         <button onClick={() => setEditingId(null)}
@@ -328,9 +352,7 @@ export default function OrdenesPage() {
                         </button>
                         <button onClick={() => guardarEdicion(o.id)} disabled={guardando}
                           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-60 ${
-                            editForm.tipo_cambio === "CIERRE"
-                              ? "bg-red-600 hover:bg-red-700 text-white"
-                              : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                            editForm.tipo_cambio === "CIERRE" ? "bg-red-600 hover:bg-red-700 text-white" : "bg-indigo-600 hover:bg-indigo-700 text-white"
                           }`}>
                           {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : editForm.tipo_cambio === "CIERRE" ? <Ban className="w-4 h-4" /> : <Check className="w-4 h-4" />}
                           {editForm.tipo_cambio === "CIERRE" ? "Cerrar orden" : "Guardar cambio"}
@@ -346,18 +368,12 @@ export default function OrdenesPage() {
             )}
           </div>
 
-          {/* Paginación */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-2">
-              <p className="text-sm text-gray-500">
-                Página {page} de {totalPages} · {total} órdenes
-              </p>
+              <p className="text-sm text-gray-500">Página {page} de {totalPages} · {total} órdenes</p>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => cambiarPagina(page - 1)}
-                  disabled={page <= 1}
-                  className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                >
+                <button onClick={() => cambiarPagina(page - 1)} disabled={page <= 1}
+                  className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition disabled:opacity-40 disabled:cursor-not-allowed">
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -371,24 +387,14 @@ export default function OrdenesPage() {
                     p === "..." ? (
                       <span key={`dots-${i}`} className="px-2 text-gray-400 text-sm">...</span>
                     ) : (
-                      <button
-                        key={p}
-                        onClick={() => cambiarPagina(p as number)}
+                      <button key={p} onClick={() => cambiarPagina(p as number)}
                         className={`w-9 h-9 rounded-xl text-sm font-medium transition ${
-                          p === page
-                            ? "bg-indigo-600 text-white shadow-sm"
-                            : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                        }`}
-                      >
-                        {p}
-                      </button>
+                          p === page ? "bg-indigo-600 text-white shadow-sm" : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                        }`}>{p}</button>
                     )
                   )}
-                <button
-                  onClick={() => cambiarPagina(page + 1)}
-                  disabled={page >= totalPages}
-                  className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                >
+                <button onClick={() => cambiarPagina(page + 1)} disabled={page >= totalPages}
+                  className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition disabled:opacity-40 disabled:cursor-not-allowed">
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -396,6 +402,160 @@ export default function OrdenesPage() {
           )}
         </>
       )}
+
+      {/* Modal de detalle */}
+      {(detalle || detalleLoading) && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => { setDetalle(null); setDetalleLoading(false); }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {detalleLoading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+              </div>
+            ) : detalle && (() => {
+              const dCfg = getEstadoConfig(detalle.estado);
+              return (
+                <>
+                  <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-gray-900">Orden #{detalle.id}</h3>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${!detalle.activa ? "bg-gray-100 text-gray-500" : `${dCfg.bg} ${dCfg.color}`}`}>
+                          {!detalle.activa ? "CERRADA" : dCfg.label}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-400 mt-0.5">{detalle.paciente_nombre}</p>
+                    </div>
+                    <button onClick={() => setDetalle(null)} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 transition">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="p-6 space-y-5">
+                    {/* Info de la orden */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <InfoItem icon={<Calendar className="w-4 h-4" />} label="Emisión" value={formatFecha(detalle.fecha_emision)} />
+                      <InfoItem icon={<Calendar className="w-4 h-4" />} label="Inicio" value={formatFecha(detalle.fecha_inicio)} />
+                      {detalle.tipo_limite === "FECHA" && (
+                        <InfoItem icon={<Calendar className="w-4 h-4" />} label="Vencimiento" value={detalle.fecha_fin ? formatFecha(detalle.fecha_fin) : "—"} />
+                      )}
+                      <InfoItem
+                        icon={detalle.tipo_limite === "FECHA" ? <Clock className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
+                        label={detalle.tipo_limite === "FECHA" ? "Días restantes" : "Sesiones"}
+                        value={detalle.tipo_limite === "FECHA"
+                          ? detalle.dias_restantes != null
+                            ? detalle.dias_restantes >= 0 ? `${detalle.dias_restantes} días` : `Venció hace ${Math.abs(detalle.dias_restantes)}d`
+                            : "—"
+                          : `${detalle.sesiones_consumidas} / ${detalle.sesiones_autorizadas}`
+                        }
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      <InfoItem icon={<FileText className="w-4 h-4" />} label="Tipo" value={detalle.tipo_limite === "FECHA" ? "Por fecha" : "Por sesiones"} />
+                      <InfoItem label="Modalidad" value={detalle.modalidad_nombre} />
+                      <InfoItem label="Terapeuta inicial" value={detalle.terapeuta_inicial_nombre} />
+                      <InfoItem label="Ingresos registrados" value={String(detalle.total_ingresos)} />
+                      {detalle.registrada_por && <InfoItem label="Registrada por" value={detalle.registrada_por} />}
+                      <InfoItem label="Fecha registro" value={formatFecha(detalle.fecha_registro)} />
+                    </div>
+
+                    {detalle.tipo_limite === "CANTIDAD_TERAPIAS" && detalle.sesiones_restantes != null && (
+                      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium ${
+                        detalle.sesiones_restantes > 5 ? "bg-emerald-50 text-emerald-700" :
+                        detalle.sesiones_restantes > 0 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"
+                      }`}>
+                        <Hash className="w-4 h-4" />
+                        {detalle.sesiones_restantes > 0
+                          ? `${detalle.sesiones_restantes} sesiones restantes`
+                          : "Sin sesiones disponibles"}
+                      </div>
+                    )}
+
+                    {/* Paciente */}
+                    {detalle.paciente && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <User className="w-4 h-4 text-indigo-500" /> Paciente
+                        </h4>
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-2">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-sm font-bold flex-shrink-0">
+                              {detalle.paciente.nombre_completo.split(" ").slice(0,2).map(n=>n[0]).join("")}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">{detalle.paciente.nombre_completo}</p>
+                              <p className="text-xs text-gray-400">
+                                {detalle.paciente.tipo_documento} {detalle.paciente.documento_identidad} · {calcularEdad(detalle.paciente.fecha_nacimiento)} años · {detalle.paciente.sexo === "MASCULINO" ? "M" : "F"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 pt-2 text-xs text-gray-600">
+                            {detalle.paciente.telefono_1 && (
+                              <span className="flex items-center gap-1.5"><Phone className="w-3 h-3 text-gray-400" />{detalle.paciente.telefono_1}</span>
+                            )}
+                            {detalle.paciente.correo && (
+                              <span className="flex items-center gap-1.5 truncate"><Mail className="w-3 h-3 text-gray-400" />{detalle.paciente.correo}</span>
+                            )}
+                            <span><span className="text-gray-400">EPS: </span><span className="font-medium">{detalle.paciente.eps_nombre || "Particular"}</span></span>
+                            <span><span className="text-gray-400">Tipo: </span><span className="font-medium">{detalle.paciente.tipo_paciente}</span></span>
+                            <span className="col-span-2"><span className="text-gray-400">CIE-10: </span><span className="font-medium">{detalle.paciente.codigo_cie10} — {detalle.paciente.diagnostico_nombre}</span></span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Historial de cambios */}
+                    {detalle.historial && detalle.historial.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-indigo-500" /> Historial de cambios
+                        </h4>
+                        <div className="space-y-2">
+                          {detalle.historial.map((h, i) => (
+                            <div key={i} className="bg-gray-50 rounded-xl p-3 border border-gray-100 text-xs">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className={`font-semibold px-2 py-0.5 rounded-full ${
+                                  h.tipo_cambio === "CIERRE" ? "bg-red-50 text-red-700" : "bg-indigo-50 text-indigo-700"
+                                }`}>
+                                  {LABELS_HISTORIAL[h.tipo_cambio] || h.tipo_cambio}
+                                </span>
+                                <span className="text-gray-400">{formatTimestamp(h.fecha_cambio)}</span>
+                              </div>
+                              {h.tipo_cambio !== "CIERRE" && (
+                                <p className="text-gray-600">
+                                  <span className="text-gray-400">Anterior: </span>{h.valor_anterior}
+                                  <span className="text-gray-400 mx-1">→</span>
+                                  <span className="font-medium">{h.valor_nuevo}</span>
+                                </p>
+                              )}
+                              <p className="text-gray-500 mt-1">
+                                <span className="text-gray-400">Motivo: </span>{h.motivo}
+                              </p>
+                              <p className="text-gray-400 mt-0.5">Por: {h.modificado_por}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoItem({ icon, label, value }: { icon?: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+      <div className="flex items-center gap-1.5 text-gray-400 mb-1">
+        {icon}
+        <span className="text-xs">{label}</span>
+      </div>
+      <p className="text-sm font-semibold text-gray-900">{value}</p>
     </div>
   );
 }
